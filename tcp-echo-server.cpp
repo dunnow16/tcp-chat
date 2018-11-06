@@ -167,6 +167,7 @@ int main(int argc, char** argv) {
 				printf("Client: %s", line);
 				if (strcmp(line, "quit\n") == 0) {
 					// quit = 1;
+
 					// Update maps
 					string s(port2username[j]);
 					port2username.erase(j);
@@ -239,7 +240,10 @@ int main(int argc, char** argv) {
     
   }
 
-	for (int j = 0; j < FD_SETSIZE; j++) {	
+	for (int j = 0; j < FD_SETSIZE; j++) {
+		//send quit to client FIXME
+		//const *char[] q = "quit\n";
+		//send(j, q, strlen(q)+1, 0);	
 		close(j);
 		FD_CLR(j, &sockets);
 	}
