@@ -12,6 +12,13 @@
 #include <unistd.h> // For close()
 #include <arpa/inet.h>
 
+//c++ stuff
+#include <iostream> 
+#include <map>
+#include <string>
+#include <sstream> 
+#include <istream>
+
 //compile with
 //g++ tcp-echo-client.cpp -o client
 //Run with
@@ -102,6 +109,13 @@ int main(int argc, char** argv) {
 	//int des = fileno(stdin);
 	// or can just use defined constant
 	FD_SET(STDIN_FILENO, &sockets);
+
+	printf("\nEnter \"quit\" to end the session.\n");
+	std::cout << "Enter \"ls\" to get a list of all clients connected \n"  
+			 << "Enter \"bc [enter message]\" to broadcast message to all users \n" 
+			 << "Enter \"c# [enter message]\" to send a direct message \n" 
+			 << "Enter \"kick c# [password]\" to kick a client off the server \n" 
+			 << std::endl;
 
 	int quit = 0;
 	while(quit == 0) {

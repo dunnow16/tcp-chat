@@ -74,6 +74,9 @@ int main(int argc, char** argv) {
 	// or can just use defined constant
 	FD_SET(STDIN_FILENO, &sockets);
 
+	printf("\nEnter \"quit\" to end the session.\n");
+    printf("Otherwise enter a message to send a broadcast to clients.\n");
+
 	int quit = 0;
 	// Infinite loops are pretty common with servers.
 	while(quit == 0) {
@@ -246,8 +249,6 @@ int main(int argc, char** argv) {
 							//if client is found
 							else {
 								//send quit to client to force quit it
-								//char q[5];
-								//memcpy(q, "quit\n", 5);
 								char q[] = "quit\n";
 								send(username2port[key1], q, strlen(q)+1, 0);
 								// Update maps
