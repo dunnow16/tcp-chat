@@ -218,13 +218,15 @@ int main(int argc, char** argv) {
 					else if (strncmp(line, "c", 1) == 0 ) {
 						string key = "c_";
 						key[1] = line[1];
+						string fr = "c_";
+						fr[1] = port2username[j][1];
 						if (username2port.find(key) == username2port.end()) {
 							string error = "No client with that name exists. Try using ls or bc\n";
 							send(j, error.c_str(), strlen(error.c_str())+1, 0);
 						}
 						else {
 							char message[5000];
-							memcpy(message, key.c_str(), 2);
+							memcpy(message, fr.c_str(), 2);
 							message[2] = ':';
 							message[3] = ' ';
 
