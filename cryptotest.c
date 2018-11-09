@@ -62,6 +62,8 @@ void handleErrors(void)
   abort();
 }
 
+//used to encrypt the symmetric, generated key from the client
+// uses public key to encrypt
 int rsa_encrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
   EVP_PKEY_CTX *ctx;
   size_t outlen;
@@ -78,6 +80,10 @@ int rsa_encrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
     handleErrors();
   return outlen;
 }
+
+//used to decrypt the symmetric, generated key from the client
+// uses the private key to encrypt
+// technically the private and public keys could be flipped but tat would be pointless and unsecure lol
 
 // a wrapper function: use as is easiest way (may use inside functions yourself)
 int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
@@ -97,6 +103,8 @@ int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
   return outlen;
 }
 
+//Used to encrypt messages
+//uses the symmeteric key
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
 	unsigned char *iv, unsigned char *ciphertext){
   EVP_CIPHER_CTX *ctx;
@@ -114,6 +122,8 @@ int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
   return ciphertext_len;
 }
 
+//Used to decrypt messages
+//uses the symmeteric key
 int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
 	    unsigned char *iv, unsigned char *plaintext){
   EVP_CIPHER_CTX *ctx;
