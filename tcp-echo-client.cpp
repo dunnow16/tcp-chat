@@ -34,6 +34,8 @@
 // test file differences with
 //diff -s filename1 filename2
 
+using namespace std;
+
 void handleErrors(void)
 {
   ERR_print_errors_fp(stderr);
@@ -53,6 +55,23 @@ int rsa_encrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
   if (EVP_PKEY_encrypt(ctx, NULL, &outlen, in, inlen) <= 0)
     handleErrors();
   if (EVP_PKEY_encrypt(ctx, out, &outlen, in, inlen) <= 0)
+    handleErrors();
+  return outlen;
+}
+
+int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
+  EVP_PKEY_CTX *ctx;
+  size_t outlen;
+  ctx = EVP_PKEY_CTX_new(key,NULL);
+  if (!ctx)
+    handleErrors();
+  if (EVP_PKEY_decrypt_init(ctx) <= 0)
+    handleErrors();
+  if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) <= 0)
+    handleErrors();
+  if (EVP_PKEY_decrypt(ctx, NULL, &outlen, in, inlen) <= 0)
+    handleErrors();
+  if (EVP_PKEY_decrypt(ctx, out, &outlen, in, inlen) <= 0)
     handleErrors();
   return outlen;
 }
@@ -98,9 +117,9 @@ int main(int argc, char** argv) {
 	// // Crypto stuff
 	// //------------------------------
 	// // Public key
-	// unsigned char *pubfilename = "RSApub.pem";
+	const char *pubfilename = "RSApub.pem";
 	// // Private key
-	// // unsigned char *privfilename = "RSApriv.pem";
+	const char *privfilename = "RSApriv.pem";
 	unsigned char key[32];
 	unsigned char iv[16];
 	// unsigned char *plaintext =
@@ -120,10 +139,10 @@ int main(int argc, char** argv) {
 	// // Why pseudo random?  Because it's only important to have iv different
 	// // for each message.  Pseudo rand is a little more efficient
 	// RAND_pseudo_bytes(iv,16);
-	// EVP_PKEY *pubkey;//, *privkey;
-	// // Read public key from file
-	// FILE* pubf = fopen(pubfilename,"rb");
-	// pubkey = PEM_read_PUBKEY(pubf,NULL,NULL,NULL);
+	EVP_PKEY *pubkey, *privkey;
+	// Read public key from file
+	FILE* pubf = fopen(pubfilename,"rb");
+	pubkey = PEM_read_PUBKEY(pubf,NULL,NULL,NULL);
 	// unsigned char encrypted_key[256];
 	// // Encrypt symmetric key using public key.
 	// // key - thing we want to encrypt
@@ -242,17 +261,65 @@ int main(int argc, char** argv) {
 	}
 
 	// Send symmetric key as first message
-	char message[5000];
+	unsigned char message[5000];
 	// Setting iv to 0's is our cue that this is a symmetric key
 	// char iv[16];
 	for (int i = 0; i < 16; i++) {
 		iv[i] = 0;
 	}
+
+	// printf("hi\n");
+
+	// EVP_PKEY *pubkey;//, *privkey;
+	// // Read public key from file
+	// FILE* pubf = fopen(pubfilename,"rb");
+	// pubkey = PEM_read_PUBKEY(pubf,NULL,NULL,NULL);
+	unsigned char encrypted_key[256];
+	// Encrypt symmetric key using public key.
+	// key - thing we want to encrypt
+	// 32 - length
+	// pubkey - public key used to encrypt
+	// encrypted_key - where to put result
+	int encryptedkey_len = rsa_encrypt(key, 32, pubkey, encrypted_key);
+	cout << encryptedkey_len << endl;
+
+	printf("symmetric key: \n");
+	for (int i = 0; i < encryptedkey_len; i++) {
+		cout << (int) encrypted_key[i];
+	}
+	cout << endl;
+
+	// *( (uint8_t*) (&message)) = encryptedkey_len;
+	*( (int*) (&iv)) = encryptedkey_len;
+
+	cout << "real length: " << encryptedkey_len << endl;
+	cout << "length: " << *((int*) (&iv)) << endl;
+	
 	// First part of message is always iv
 	memcpy(message, iv, 16);
+	cout << "m length: " << *((int*) (&iv)) << endl;
 	// Second part is client's symmetric key
-	memcpy(&(message[16]), key, 32);
-	send(sockfd, message, 32 + 16, 0);
+	memcpy(&(message[16]), encrypted_key, encryptedkey_len);
+	send(sockfd, message, 16 + encryptedkey_len, 0);
+
+	// // Read private key
+	// FILE* privf = fopen(privfilename,"rb");
+	// privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
+	// unsigned char decrypted_key[32];
+	// // This is what the server would do.
+	// int decryptedkey_len = rsa_decrypt(encrypted_key, encryptedkey_len, privkey, decrypted_key); 
+	// printf("unencrypted key: \n");
+	// for (int i = 0; i < 32; i++) {
+	// 	cout << (int) key[i];
+	// }
+	// cout << endl;
+	// printf("decrypted key: \n");
+	// for (int i = 0; i < decryptedkey_len; i++) {
+	// 	cout << (int) decrypted_key[i];
+	// }
+	// cout << endl;
+
+	// int decryptedkey_len = rsa_decrypt(line, encryptedkey_len, privkey, decrypted_key);
 
 
 	//add sockfd to list of sockets
@@ -261,7 +328,6 @@ int main(int argc, char** argv) {
 	//int des = fileno(stdin);
 	// or can just use defined constant
 	FD_SET(STDIN_FILENO, &sockets);
-
 	printf("\nEnter \"quit\" to end the session.\n");
 	std::cout << "Enter \"ls\" to get a list of all clients connected \n"  
 			 << "Enter \"bc [enter message]\" to broadcast message to all users \n" 

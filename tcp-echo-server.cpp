@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
 	// // // Public key
 	// // unsigned char *pubfilename = "RSApub.pem";
 	// // Private key
-	// unsigned char *privfilename = "RSApriv.pem";
+	const char *privfilename = "RSApriv.pem";
 	// unsigned char key[32];
 	// unsigned char iv[16];
 	// unsigned char *plaintext =
@@ -107,10 +107,10 @@ int main(int argc, char** argv) {
 	// unsigned char ciphertext[1024];
 	// unsigned char decryptedtext[1024];
 	// int decryptedtext_len, ciphertext_len;
-	// // Initialize cryptography libraries
-	// ERR_load_crypto_strings();
-	// OpenSSL_add_all_algorithms();
-	// OPENSSL_config(NULL);
+	// Initialize cryptography libraries
+	ERR_load_crypto_strings();
+	OpenSSL_add_all_algorithms();
+	OPENSSL_config(NULL);
 	// // // Fill an array of 32 characters with 32 random bytes to use as
 	// // // symmetric key.
 	// // // Use this function because others may not be random enough.
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 	// // Why pseudo random?  Because it's only important to have iv different
 	// // for each message.  Pseudo rand is a little more efficient
 	// RAND_pseudo_bytes(iv,16);
-	// EVP_PKEY *privkey; //*pubkey, 
+	EVP_PKEY *privkey; //*pubkey, 
 	// // // Read public key from file
 	// // FILE* pubf = fopen(pubfilename,"rb");
 	// // pubkey = PEM_read_PUBKEY(pubf,NULL,NULL,NULL);
@@ -146,9 +146,9 @@ int main(int argc, char** argv) {
 	// // // also includes character representation in case some of the data is text
 	// // BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
-	// // Read private key
-	// FILE* privf = fopen(privfilename,"rb");
-	// privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
+	// Read private key
+	FILE* privf = fopen(privfilename,"rb");
+	privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
 	// unsigned char decrypted_key[32];
 	// // This is what the server would do.
 	// int decryptedkey_len = rsa_decrypt(encrypted_key, encryptedkey_len, privkey, decrypted_key); 
@@ -310,19 +310,52 @@ int main(int argc, char** argv) {
 					// cout << "got message" << endl;
 					// Sending and receiving works the same for the server as the client.
 					char* line = new char[5000];
+					// unsigned char* line = new unsigned char[5000];
 					// j is our socket number
 					recv(j, line, 5000, 0);
 
 					int is_sym_key = 1;
-					for (int i = 0; i < 16; i++) {
+					for (int i = 8; i < 16; i++) {
 						if (line[i] != 0) is_sym_key = 0;
 					}
 
 					if (is_sym_key) {
-						printf("Got a symmetric key\n");						
+						printf("Got a symmetric key\n");
+
+						// int encryptedkey_len = (int) ntohl((unsigned int) *line);// *((int*) (&line));//(unsigned char) line[15];
+						int encryptedkey_len = 256;
+						// // Read private key
+						// FILE* privf = fopen(privfilename,"rb");
+						// privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
+						unsigned char decrypted_key[32];
+						// This is what the server would do.
+						cout << "length: " << encryptedkey_len << endl;
+						cout << (int) line[0] << " ";
+						cout << (int) line[2] << " ";
+						cout << (int) line[3] << " ";
+						cout << (int) line[4] << endl;
+
+						printf("symmetric key: \n");
+						for (int i = 0; i < encryptedkey_len; i++) {
+							cout << (int) line[i+16];
+						}
+						cout << endl;
+
+						int decryptedkey_len = rsa_decrypt((unsigned char*) line+16, encryptedkey_len, privkey, decrypted_key);
+						// int decryptedkey_len = rsa_decrypt(line+16, encryptedkey_len, privkey, decrypted_key);
+
+						printf("decrypted symmetric key: \n");
+						for (int i = 0; i < decryptedkey_len; i++) {
+							cout << (int) decrypted_key[i];
+						}
+						cout << endl;
+						// map <int, unsigned char*> port2key; //stores symmetric key for each client
+
 					} else {
 
+						// char* thing = (char*) line;
 						char* unencrypted_message = new char[5000];
+						// memcpy (unencrypted_message, &(thing[16]), strlen(&(thing[16])) + 1);
 						memcpy (unencrypted_message, &(line[16]), strlen(&(line[16])) + 1);
 
 
