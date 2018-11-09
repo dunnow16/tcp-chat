@@ -2,6 +2,7 @@
  * Owen Dunn, Reuben Wattenhofer, Cody Krueger
  * Project 3: TCP Encrypted Chat Program
  * 
+ * 
  */
 
 #include <sys/socket.h> // How to send/receive information over networks
@@ -27,6 +28,10 @@
 #include <string>
 #include <sstream> 
 #include <istream>
+
+//
+// compile: g++ tcp-echo-client.cpp -lcrypto -o c
+//
 
 using namespace std;
 

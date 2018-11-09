@@ -2,7 +2,15 @@
  * Owen Dunn, Reuben Wattenhofer, Cody Krueger
  * Project 3: TCP Encrypted Chat Program
  * 
+ * 
  */
+
+//compile with
+//compile: g++ tcp-echo-client.cpp -lcrypto -o c
+//Run with
+// ./client
+// test file differences with
+//diff -s filename1 filename2
 
 #include <sys/socket.h> // How to send/receive information over networks
 #include <netinet/in.h> //includes information specific to internet protocol
@@ -27,20 +35,15 @@
 #include <sstream> 
 #include <istream>
 
-//compile with
-//g++ tcp-echo-client.cpp -o client
-//Run with
-// ./client
-// test file differences with
-//diff -s filename1 filename2
-
 using namespace std;
+
 
 void handleErrors(void)
 {
   ERR_print_errors_fp(stderr);
   abort();
 }
+
 
 int rsa_encrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
   EVP_PKEY_CTX *ctx;
@@ -59,6 +62,7 @@ int rsa_encrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
   return outlen;
 }
 
+
 int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
   EVP_PKEY_CTX *ctx;
   size_t outlen;
@@ -75,6 +79,7 @@ int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
     handleErrors();
   return outlen;
 }
+
 
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
 	unsigned char *iv, unsigned char *ciphertext){
@@ -119,7 +124,7 @@ int main(int argc, char** argv) {
 	// // Public key
 	const char *pubfilename = "RSApub.pem";
 	// // Private key
-	const char *privfilename = "RSApriv.pem";
+	// const char *privfilename = "RSApriv.pem";
 	unsigned char key[32];
 	unsigned char iv[16];
 	// unsigned char *plaintext =
@@ -127,17 +132,20 @@ int main(int argc, char** argv) {
 	// unsigned char ciphertext[1024];
 	// unsigned char decryptedtext[1024];
 	// int decryptedtext_len, ciphertext_len;
+
 	// Initialize cryptography libraries
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
 	OPENSSL_config(NULL);
+
 	// Fill an array of 32 characters with 32 random bytes to use as
 	// symmetric key.
 	// Use this function because others may not be random enough.
 	RAND_bytes(key,32);
-	// // Create initialization vector.  Recreate for each message.
-	// // Why pseudo random?  Because it's only important to have iv different
-	// // for each message.  Pseudo rand is a little more efficient
+
+	// Create initialization vector.  Recreate for each message.
+	// Why pseudo random?  Because it's only important to have iv different
+	// for each message.  Pseudo rand is a little more efficient
 	// RAND_pseudo_bytes(iv,16);
 	EVP_PKEY *pubkey, *privkey;
 	// Read public key from file
@@ -281,7 +289,7 @@ int main(int argc, char** argv) {
 	// pubkey - public key used to encrypt
 	// encrypted_key - where to put result
 	int encryptedkey_len = rsa_encrypt(key, 32, pubkey, encrypted_key);
-	cout << encryptedkey_len << endl;
+	cout << "encrypted key len: " << encryptedkey_len << endl;
 
 	printf("symmetric key: \n");
 	for (int i = 0; i < encryptedkey_len; i++) {
@@ -294,10 +302,12 @@ int main(int argc, char** argv) {
 
 	cout << "real length: " << encryptedkey_len << endl;
 	cout << "length: " << *((int*) (&iv)) << endl;
+	//printf("iv in hex: %x\n", *((int*) (&iv)));
 	
 	// First part of message is always iv
-	memcpy(message, iv, 16);
-	cout << "m length: " << *((int*) (&iv)) << endl;
+	memcpy(message, iv, 16);  // iv all 0 for first 16 bytes?
+	//printf("message in hex: %x\n", message);
+	cout << "m length: " << *((int*) (&iv)) << endl;  // iv unaffected by memcpy
 	// Second part is client's symmetric key
 	memcpy(&(message[16]), encrypted_key, encryptedkey_len);
 	send(sockfd, message, 16 + encryptedkey_len, 0);
@@ -328,6 +338,7 @@ int main(int argc, char** argv) {
 	//int des = fileno(stdin);
 	// or can just use defined constant
 	FD_SET(STDIN_FILENO, &sockets);
+
 	printf("\nEnter \"quit\" to end the session.\n");
 	std::cout << "Enter \"ls\" to get a list of all clients connected \n"  
 			 << "Enter \"bc [enter message]\" to broadcast message to all users \n" 
@@ -362,7 +373,7 @@ int main(int argc, char** argv) {
 					// 5000 - how much we're willing to receive
 					recv(sockfd, line2, 10000, 0);
 
-					// Print what we received.
+					// Print what we received. (has newline from fgets())
 					printf("%s", line2);
 					if (strcmp(line2, "quit\n") == 0) {
 						quit = 1;
@@ -377,7 +388,7 @@ int main(int argc, char** argv) {
 					
 					char* encrypted_message = new char[5000];
 					// Set iv to something random and fun
-					RAND_pseudo_bytes(iv,16);
+					RAND_pseudo_bytes(iv, 16);
 					// First part of message is always iv
 					memcpy(encrypted_message, iv, 16);
 					// Second part is encrypted line from client
