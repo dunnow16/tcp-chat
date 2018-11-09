@@ -124,9 +124,9 @@ int main(int argc, char** argv) {
 	unsigned char iv[16];
 	// unsigned char *plaintext =
 	// 	(unsigned char *)"This is a test string to encrypt.";
-	// unsigned char ciphertext[1024];
-	// unsigned char decryptedtext[1024];
-	// int decryptedtext_len, ciphertext_len;
+	unsigned char ciphertext[2048]; // changed from 1024
+	unsigned char decryptedtext[2048];
+	int decryptedtext_len, ciphertext_len;
 	// Initialize cryptography libraries
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
@@ -360,11 +360,21 @@ int main(int argc, char** argv) {
 					// sockfd - socket to receive data from
 					// line2 - where to store the data
 					// 5000 - how much we're willing to receive
-					recv(sockfd, line2, 10000, 0);
+					unsigned int recv_len = recv(sockfd, line2, 10000, 0);
+
+					//decrypt the message here
+					// create a holding place for the text
+					char* decrypted_message = new char[5000];
+					// seperate the incoming iv from the message
+					memcpy(iv, line2, 16);
+
+					// decrypt the plaintext
+					decryptedtext_len = decrypt((unsigned char*)line2, recv_len, key, iv, decryptedtext);
 
 					// Print what we received.
-					printf("%s", line2);
-					if (strcmp(line2, "quit\n") == 0) {
+					//printf("%s", line2); dep
+					printf("%s", decryptedtext);
+					if (strcmp((char*)decryptedtext, "quit\n") == 0) {
 						quit = 1;
 						break;
 					}
@@ -379,12 +389,17 @@ int main(int argc, char** argv) {
 					// Set iv to something random and fun
 					RAND_pseudo_bytes(iv,16);
 					// First part of message is always iv
-					memcpy(encrypted_message, iv, 16);
-					// Second part is encrypted line from client
-					memcpy(&(encrypted_message[16]), line, strlen(line));
 
-					// send(sockfd, line, strlen(line)+1, 0);
-					send(sockfd, encrypted_message, strlen(line)+1 + 16, 0);
+					//encrypt line here
+					ciphertext_len = encrypt((unsigned char*)line, strlen(line), key, iv, ciphertext);
+
+					// Second part is encrypted line from client
+					memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+					//memcpy(&(encrypted_message[16]), line, strlen(line)); dep
+
+					//send(sockfd, line, strlen(line)+1, 0); dep
+					//send(sockfd, encrypted_message, strlen(line)+1 + 16, 0); dep
+					send(sockfd, encrypted_message, ciphertext_len + 16, 0);
 					if (strcmp(line, "quit\n") == 0) {
 						quit = 1;
 						break;
@@ -404,6 +419,7 @@ int main(int argc, char** argv) {
 		// length of data we want to send (number of characters)
 		//   Don't use strlen if we're not sending a string!!
 		//   The +1 is for the end of string symbol "\0"
+		// memcpy (dest, src, length to copy)
 
 		//send(sockfd, input, strlen(input)+1,0);
 
