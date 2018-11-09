@@ -349,7 +349,15 @@ int main(int argc, char** argv) {
 							cout << (int) decrypted_key[i];
 						}
 						cout << endl;
+
 						// map <int, unsigned char*> port2key; //stores symmetric key for each client
+						port2key[j] = new unsigned char[decryptedkey_len];
+						memcpy(port2key[j], decrypted_key, decryptedkey_len);
+						cout << "stored key for " << j << " : ";
+						for (int i = 0; i < decryptedkey_len; i++) {
+							cout << (int) port2key[j][i];
+						}
+						cout << endl;
 
 					} else {
 
