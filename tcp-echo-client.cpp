@@ -129,16 +129,10 @@ int main(int argc, char** argv) {
 	unsigned char iv[16];
 	// unsigned char *plaintext =
 	// 	(unsigned char *)"This is a test string to encrypt.";
-<<<<<<< HEAD
-	// unsigned char ciphertext[1024];
-	// unsigned char decryptedtext[1024];
-	// int decryptedtext_len, ciphertext_len;
-
-=======
 	unsigned char ciphertext[2048]; // changed from 1024
 	unsigned char decryptedtext[2048];
 	int decryptedtext_len, ciphertext_len;
->>>>>>> 2222a5dc73311c9ca8166db16ca3810112ae5a01
+	
 	// Initialize cryptography libraries
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
@@ -388,16 +382,10 @@ int main(int argc, char** argv) {
 					// decrypt the plaintext
 					decryptedtext_len = decrypt((unsigned char*)line2, recv_len, key, iv, decryptedtext);
 
-<<<<<<< HEAD
-					// Print what we received. (has newline from fgets())
-					printf("%s", line2);
-					if (strcmp(line2, "quit\n") == 0) {
-=======
 					// Print what we received.
 					//printf("%s", line2); dep
 					printf("%s", decryptedtext);
 					if (strcmp((char*)decryptedtext, "quit\n") == 0) {
->>>>>>> 2222a5dc73311c9ca8166db16ca3810112ae5a01
 						quit = 1;
 						break;
 					}
