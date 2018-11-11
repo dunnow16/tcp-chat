@@ -116,6 +116,18 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
 }
 
 
+/**
+ * This function checks if a valid ipv4 address was passed.
+ * source:   https://stackoverflow.com/questions/791982
+ * accessed: 9/26/18
+ */
+int isValidIpAddress(char *ipAddress) {
+    struct sockaddr_in sa;
+    int result = inet_pton(AF_INET, ipAddress, &(sa.sin_addr));
+    return result != 0;
+}
+
+
 int main(int argc, char** argv) {
 
 	// //------------------------------
@@ -138,6 +150,7 @@ int main(int argc, char** argv) {
 	OpenSSL_add_all_algorithms();
 	OPENSSL_config(NULL);
 
+	// Create symmetric key:
 	// Fill an array of 32 characters with 32 random bytes to use as
 	// symmetric key.
 	// Use this function because others may not be random enough.
@@ -149,8 +162,8 @@ int main(int argc, char** argv) {
 	// RAND_pseudo_bytes(iv,16);
 	EVP_PKEY *pubkey, *privkey;
 	// Read public key from file
-	FILE* pubf = fopen(pubfilename,"rb");
-	pubkey = PEM_read_PUBKEY(pubf,NULL,NULL,NULL);
+	FILE* pubf = fopen(pubfilename, "rb");
+	pubkey = PEM_read_PUBKEY(pubf, NULL, NULL, NULL);
 	// unsigned char encrypted_key[256];
 	// // Encrypt symmetric key using public key.
 	// // key - thing we want to encrypt
@@ -206,13 +219,15 @@ int main(int argc, char** argv) {
 	char input[5000];
 	printf("Enter a port number:");
 	fgets(input, 5000, stdin);
-
 	port = atoi(input);
+	if (port < 0 || port > 65535) {
+		printf("Please enter a valid port number.");
+		return 1;
+	}
 	//printf("%i\n", port);
 
 	printf("Enter an ip address:");
 	fgets(input, 5000, stdin);
-
 	//Copy the data from input to ipaddress
 	for (int i = 0; i < 50; i++) {
 		if (input[i] == '\n') {
@@ -223,7 +238,10 @@ int main(int argc, char** argv) {
 		}
 	}
 	//printf("%s\n", ipaddress);
-
+	if ( !isValidIpAddress(ipaddress) ) {
+			printf("Invalid ipv4 address.\n");
+			return 2;
+	}
 
 	// on backend, stream sockets use a transport protocol called tcp
 	// When you open a file, it's assigned a file description integer to identify
@@ -231,13 +249,12 @@ int main(int argc, char** argv) {
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);  
 	// For this kind of socket, reliability is handled behind the scenes.
 	// We don't have to worry about breaking data into packets either.
-
 	// Downside is that there isn't a direct correspondance between sends and
 	// receive numbers (ie how many times send/receive are called)
 
 	if (sockfd < 0) {
 		printf("There was an error creating the socket\n");
-		return 1;
+		return 3;
 	}
 	// We have a socket connected to the network, but need to perform a few
 	// extra steps to do anything with it.
@@ -254,8 +271,8 @@ int main(int argc, char** argv) {
 	// Servers listen on a certain port number
 	// What number should we use? arbitrary, but use for client and server;
 	// needs to be within a certain range.
-	serveraddr.sin_port=htons(port); //9876 will end up being sent with the data
-	serveraddr.sin_addr.s_addr=inet_addr(ipaddress); //localhost; good for
+	serveraddr.sin_port = htons(port); //9876 will end up being sent with the data
+	serveraddr.sin_addr.s_addr = inet_addr(ipaddress); //localhost; good for
 	//testing programs "127.0.0.1" is localhost
 
 	//connect() works for any socket types, not just internet sockets, so we
@@ -292,10 +309,11 @@ int main(int argc, char** argv) {
 	cout << "encrypted key len: " << encryptedkey_len << endl;
 
 	printf("symmetric key: \n");
-	for (int i = 0; i < encryptedkey_len; i++) {
-		cout << (int) encrypted_key[i];
-	}
-	cout << endl;
+	// for (int i = 0; i < encryptedkey_len; i++) {
+	// 	cout << (int) encrypted_key[i];
+	// }
+	// cout << endl;
+	BIO_dump_fp (stdout, (const char *)key, 32);  // bin to hex printed
 
 	// *( (uint8_t*) (&message)) = encryptedkey_len;
 	*( (int*) (&iv)) = encryptedkey_len;
@@ -305,11 +323,13 @@ int main(int argc, char** argv) {
 	//printf("iv in hex: %x\n", *((int*) (&iv)));
 	
 	// First part of message is always iv
-	memcpy(message, iv, 16);  // iv all 0 for first 16 bytes?
+	memcpy(message, /*iv*/0x0000, 16);  // iv all 0 for first 16 bytes?
 	//printf("message in hex: %x\n", message);
 	cout << "m length: " << *((int*) (&iv)) << endl;  // iv unaffected by memcpy
 	// Second part is client's symmetric key
 	memcpy(&(message[16]), encrypted_key, encryptedkey_len);
+	fprintf(stderr, "encrypted symmetric key\n");
+	BIO_dump_fp (stdout, (const char *)encrypted_key, encryptedkey_len);
 	send(sockfd, message, 16 + encryptedkey_len, 0);
 
 	// // Read private key
@@ -331,7 +351,6 @@ int main(int argc, char** argv) {
 
 	// int decryptedkey_len = rsa_decrypt(line, encryptedkey_len, privkey, decrypted_key);
 
-
 	//add sockfd to list of sockets
 	FD_SET(sockfd, &sockets);
 	// get file descriptor for stdin
@@ -346,6 +365,7 @@ int main(int argc, char** argv) {
 			 << "Enter \"kick c# [password]\" to kick a client off the server \n" 
 			 << std::endl;
 
+	// Receieve and send messages until the user quits or is kicked.
 	int quit = 0;
 	while(quit == 0) {
 		fd_set tmp_set = sockets;
@@ -359,28 +379,28 @@ int main(int argc, char** argv) {
 		//blocking operation, can do multiple things.  As configured, will wait until a socket is
 		//available for reading.  &tmp_set will be modified to only contain sockets with data
 		int j;
-
 		for (j = 0; j < FD_SETSIZE; j++) {
 			// is socket j in the list of sockets containing data?
 			if(FD_ISSET(j, &tmp_set)) {
 				if(j == sockfd) {
-					char line2[10000];
-
+					cout << "Got message\n";
+					unsigned char line2[10000];
 					// Receive the data.  This is a blocking call! Will stop the program until
-					//   data is received over the network.
+					// data is received over the network.
 					// sockfd - socket to receive data from
 					// line2 - where to store the data
 					// 5000 - how much we're willing to receive
 					unsigned int recv_len = recv(sockfd, line2, 10000, 0);
 
-					//decrypt the message here
-					// create a holding place for the text
-					char* decrypted_message = new char[5000];
+					// decrypt the message here
 					// seperate the incoming iv from the message
+					cout << "Retrieving iv from message\n";
 					memcpy(iv, line2, 16);
 
-					// decrypt the plaintext
-					decryptedtext_len = decrypt((unsigned char*)line2, recv_len, key, iv, decryptedtext);
+					// decrypt the plaintext (using symmetric key)
+					// -first 16 bytes are the iv
+					cout << "Decrypting message\n";
+					decryptedtext_len = decrypt(line2+16, recv_len-16, key, iv, decryptedtext);
 
 					// Print what we received.
 					//printf("%s", line2); dep
@@ -389,7 +409,6 @@ int main(int argc, char** argv) {
 						quit = 1;
 						break;
 					}
-
 				} else if (j == STDIN_FILENO) {
 					//printf(" yes what's your pleasure ");
 					char line[5000];
@@ -399,9 +418,10 @@ int main(int argc, char** argv) {
 					char* encrypted_message = new char[5000];
 					// Set iv to something random and fun
 					RAND_pseudo_bytes(iv, 16);
+					memcpy(encrypted_message, iv, 16);
 					// First part of message is always iv
 
-					//encrypt line here
+					//encrypt line here using symmetric key
 					ciphertext_len = encrypt((unsigned char*)line, strlen(line), key, iv, ciphertext);
 
 					// Second part is encrypted line from client
@@ -410,12 +430,13 @@ int main(int argc, char** argv) {
 
 					//send(sockfd, line, strlen(line)+1, 0); dep
 					//send(sockfd, encrypted_message, strlen(line)+1 + 16, 0); dep
+					cout << "Sending message to server\n";
 					send(sockfd, encrypted_message, ciphertext_len + 16, 0);
+					cout << "Message sent to server\n";
 					if (strcmp(line, "quit\n") == 0) {
 						quit = 1;
 						break;
 					}
-					
 				}
 			}
 		}
@@ -423,7 +444,6 @@ int main(int argc, char** argv) {
 		//printf("Enter a file name:");
 		//fgets(input, 5000, stdin);
 		
-
 		// Sent the data!
 		// sockfd - socket to send data over; don't need to specify address
 		// line - data we want to send
@@ -433,7 +453,6 @@ int main(int argc, char** argv) {
 		// memcpy (dest, src, length to copy)
 
 		//send(sockfd, input, strlen(input)+1,0);
-
 	}
 		
 	// Close the sockets.
@@ -443,7 +462,5 @@ int main(int argc, char** argv) {
 		FD_CLR(j, &sockets);
 	}
 
-
 	return 0;
 }
-

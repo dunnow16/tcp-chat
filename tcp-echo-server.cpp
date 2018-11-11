@@ -154,8 +154,8 @@ int main(int argc, char** argv) {
 	// // BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
 	// Read private key
-	FILE* privf = fopen(privfilename,"rb");
-	privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
+	FILE* privf = fopen(privfilename, "rb");
+	privkey = PEM_read_PrivateKey(privf, NULL, NULL, NULL);
 	// unsigned char decrypted_key[32];
 	// // This is what the server would do.
 	// int decryptedkey_len = rsa_decrypt(encrypted_key, encryptedkey_len, privkey, decrypted_key); 
@@ -173,7 +173,6 @@ int main(int argc, char** argv) {
 	// ERR_free_strings();
 	// //------------------------------
 
-
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	int port;
 
@@ -187,22 +186,23 @@ int main(int argc, char** argv) {
 	char input[5000];
 	printf("Enter a port number:");
 	fgets(input, 5000, stdin);
-
 	port = atoi(input);
+	if (port < 0 || port > 65535) {
+		printf("Please enter a valid port number.");
+		return 1;
+	}
 	printf("%i\n", port);
-
 
 	// Server needs to know its own address as well as its client
 	struct sockaddr_in serveraddr, clientaddr;
 
-
 	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_port=htons(port);  //9876
+	serveraddr.sin_port = htons(port);  //9876
 	// Tell server its own address
 	// INADDR_ANY = any address the computer has, as long as it contains the
 	// port number -- ie we don't care.  Typical way to program a server since
 	// we have no idea what the computer address might be.
-	serveraddr.sin_addr.s_addr=INADDR_ANY;
+	serveraddr.sin_addr.s_addr = INADDR_ANY;
 
 	// bind() associates serveraddr with the socket
 	// "anything sent to this address should be received on this socket"
@@ -225,8 +225,10 @@ int main(int argc, char** argv) {
 	printf("\nEnter \"quit\" to end the session.\n");
     printf("Otherwise enter a message to send a broadcast to clients.\n");
 
-	int quit = 0;
-	// Infinite loops are pretty common with servers.
+	
+	// Run loop to receive, forward, and send messages until "quit" entered.
+	// -Infinite loops are pretty common with servers.
+	int quit = 0;  // a flag to mark end of session
 	while(quit == 0) {
 		fd_set tmp_set = sockets;
 		//checks to see if we can read from the sockets
@@ -252,9 +254,9 @@ int main(int argc, char** argv) {
 					// We need to create a new socket for each client
 					int clientsocket = accept(sockfd, (struct sockaddr*)&clientaddr, (socklen_t*) &len);
 					FD_SET(clientsocket, &sockets);
+
 					// Create a distinct username
 					string username = "c1";
-
 					int num = 0;
 					while ( username2port.find(username) != username2port.end() ) {
 						num++;
@@ -265,7 +267,6 @@ int main(int argc, char** argv) {
 					memcpy(port2username[clientsocket], (char *) username.c_str(), 3);
 					cout << "client name: " << username << " socket: " << username2port[username] << endl;
 					// cout << "socket: " << clientsocket << " username: " << port2username[clientsocket] << endl;
-
 
 					// int excit = 0;
 					// int num = 0;
@@ -296,27 +297,28 @@ int main(int argc, char** argv) {
 					// 	// cout << "num: " << num << endl;
 
 					// }
-				} else if (j == STDIN_FILENO) {
+				} else if (j == STDIN_FILENO) {  // message originating from server
 					//printf(" yes what's your pleasure ");
 					char line[5000];
 					fgets(line, 5000, stdin);
 					//printf("%s\n", line);			
 
+					// Send message to all clients
 					for (int i  = 0; i < FD_SETSIZE; i++) {
-						// send line to a client (let's hope there's only one connected)
+						// send line to a client (let's hope there's only one connected - TODO this still relevant?)
 						if(FD_ISSET(i, &sockets) && i != sockfd && i != STDIN_FILENO) {
 							send(i, line, strlen(line)+1, 0);
 						}
 					}
-					if (strcmp(line, "quit\n") == 0) {
+					// end server session after sending "quit\n" to all clients
+					if (strcmp(line, "quit\n") == 0) {  
 						quit = 1;
 						break;
 					}
-
 				} else {
 					// cout << "got message" << endl;
 					// Sending and receiving works the same for the server as the client.
-					char* line = new char[5000];
+					char* line = new char[5000];  // TODO will mem leaks cause a crash if runs too long?
 					// unsigned char* line = new unsigned char[5000];
 					// j is our socket number
 					unsigned int recv_len = recv(j, line, 5000, 0);
@@ -343,20 +345,21 @@ int main(int argc, char** argv) {
 						cout << (int) line[3] << " ";
 						cout << (int) line[4] << endl;
 
-						printf("symmetric key: \n");
-						for (int i = 0; i < encryptedkey_len; i++) {
-							cout << (int) line[i+16];
-						}
-						cout << endl;
-
+						printf("encrypted symmetric key: \n");
+						// for (int i = 0; i < encryptedkey_len; i++) {
+						// 	cout << (int) line[i+16];
+						// }
+						// cout << endl;
+						BIO_dump_fp (stdout, (const char *)line+16, recv_len-16);
+						cout << "decrypting the received symmetric key from client\n";
 						int decryptedkey_len = rsa_decrypt((unsigned char*) line+16, encryptedkey_len, privkey, decrypted_key);
 						// int decryptedkey_len = rsa_decrypt(line+16, encryptedkey_len, privkey, decrypted_key);
-
 						printf("decrypted symmetric key: \n");
-						for (int i = 0; i < decryptedkey_len; i++) {
-							cout << (int) decrypted_key[i];
-						}
-						cout << endl;
+						// for (int i = 0; i < decryptedkey_len; i++) {
+						// 	cout << (int) decrypted_key[i];
+						// }
+						// cout << endl;
+						BIO_dump_fp (stdout, (const char *)decrypted_key, decryptedkey_len);
 
 						// map <int, unsigned char*> port2key; //stores symmetric key for each client
 						port2key[j] = new unsigned char[decryptedkey_len];
