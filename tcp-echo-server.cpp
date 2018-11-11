@@ -376,14 +376,14 @@ int main(int argc, char** argv) {
 						port2key[j] = new unsigned char[decryptedkey_len];
 						memcpy(port2key[j], decrypted_key, decryptedkey_len);
 						cout << "stored key for port " << j << " or client " 
-							<< port2username[j] << ": \n";
+							<< port2username[j] << " \n";
 						// for (int i = 0; i < decryptedkey_len; i++) {
 						// 	cout << (int) port2key[j][i];
 						// }
 						// cout << endl;
-						BIO_dump_fp (stdout, (const char*)port2key[j], decryptedkey_len);
+						// BIO_dump_fp (stdout, (const char*)port2key[j], decryptedkey_len);
 
-					} else {  // a message received from client
+					} else {  // a message received from client: iv for first 16 bytes, then encrypted messsage
 
 						//-----------------------------
 						// decrypt recieved message - server 
