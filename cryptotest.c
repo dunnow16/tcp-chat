@@ -21,7 +21,7 @@
 //--------------------------
 
 //--------------------------
-// use symmetric key to encrypt symmetric key, send over, use symmetric key
+// use symmetric key (you mean public key?) to encrypt symmetric key, send over, use symmetric key
 // afterwards
 
 // Server starts off knowing a private key
@@ -82,9 +82,8 @@ int rsa_encrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
 }
 
 //used to decrypt the symmetric, generated key from the client
-// uses the private key to encrypt
+// uses the private key to decrypt
 // technically the private and public keys could be flipped but tat would be pointless and unsecure lol
-
 // a wrapper function: use as is easiest way (may use inside functions yourself)
 int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
   EVP_PKEY_CTX *ctx;

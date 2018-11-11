@@ -217,31 +217,31 @@ int main(int argc, char** argv) {
 	char fileName[5000];
 	// Get port number and ip address.
 	char input[5000];
-	printf("Enter a port number:");
-	fgets(input, 5000, stdin);
-	port = atoi(input);
-	if (port < 0 || port > 65535) {
-		printf("Please enter a valid port number.");
-		return 1;
-	}
-	//printf("%i\n", port);
+	// printf("Enter a port number: ");
+	// fgets(input, 5000, stdin);
+	// port = atoi(input);
+	// if (port < 0 || port > 65535) {
+	// 	printf("Please enter a valid port number.");
+	// 	return 1;
+	// }
+	// //printf("%i\n", port);
 
-	printf("Enter an ip address:");
-	fgets(input, 5000, stdin);
-	//Copy the data from input to ipaddress
-	for (int i = 0; i < 50; i++) {
-		if (input[i] == '\n') {
-			ipaddress[i] = '\0';
-			break;
-		} else {
-			ipaddress[i] = input[i];
-		}
-	}
-	//printf("%s\n", ipaddress);
-	if ( !isValidIpAddress(ipaddress) ) {
-			printf("Invalid ipv4 address.\n");
-			return 2;
-	}
+	// printf("Enter an ip address: ");
+	// fgets(input, 5000, stdin);
+	// //Copy the data from input to ipaddress
+	// for (int i = 0; i < 50; i++) {
+	// 	if (input[i] == '\n') {
+	// 		ipaddress[i] = '\0';
+	// 		break;
+	// 	} else {
+	// 		ipaddress[i] = input[i];
+	// 	}
+	// }
+	// //printf("%s\n", ipaddress);
+	// if ( !isValidIpAddress(ipaddress) ) {
+	// 		printf("Invalid ipv4 address.\n");
+	// 		return 2;
+	// }
 
 	// on backend, stream sockets use a transport protocol called tcp
 	// When you open a file, it's assigned a file description integer to identify
@@ -271,8 +271,8 @@ int main(int argc, char** argv) {
 	// Servers listen on a certain port number
 	// What number should we use? arbitrary, but use for client and server;
 	// needs to be within a certain range.
-	serveraddr.sin_port = htons(port); //9876 will end up being sent with the data
-	serveraddr.sin_addr.s_addr = inet_addr(ipaddress); //localhost; good for
+	serveraddr.sin_port = htons(5555); //9876 will end up being sent with the data
+	serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost; good for
 	//testing programs "127.0.0.1" is localhost
 
 	//connect() works for any socket types, not just internet sockets, so we
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
 	// cout << endl;
 	BIO_dump_fp (stdout, (const char *)key, 32);  // bin to hex printed
 
-	// *( (uint8_t*) (&message)) = encryptedkey_len;
+	*( (uint8_t*) (&message)) = encryptedkey_len;
 	*( (int*) (&iv)) = encryptedkey_len;
 
 	cout << "real length: " << encryptedkey_len << endl;
@@ -323,14 +323,18 @@ int main(int argc, char** argv) {
 	//printf("iv in hex: %x\n", *((int*) (&iv)));
 	
 	// First part of message is always iv
-	memcpy(message, /*iv*/0x0000, 16);  // iv all 0 for first 16 bytes?
+	memcpy(message, iv, 16);  // iv all 0 for first 16 bytes?
 	//printf("message in hex: %x\n", message);
 	cout << "m length: " << *((int*) (&iv)) << endl;  // iv unaffected by memcpy
 	// Second part is client's symmetric key
-	memcpy(&(message[16]), encrypted_key, encryptedkey_len);
+	memcpy(message+16, encrypted_key, encryptedkey_len);
 	fprintf(stderr, "encrypted symmetric key\n");
 	BIO_dump_fp (stdout, (const char *)encrypted_key, encryptedkey_len);
-	send(sockfd, message, 16 + encryptedkey_len, 0);
+	int sent_len = send(sockfd, message, 16 + encryptedkey_len, 0);
+	if (sent_len == 0) {
+		printf("Did not send any bytes. Something is wrong.\n");
+		return 3;
+	}
 
 	// // Read private key
 	// FILE* privf = fopen(privfilename,"rb");

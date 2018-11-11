@@ -183,21 +183,21 @@ int main(int argc, char** argv) {
 	//OS treats devices/sockets as files and gives them an integer for file descriptor
 
 	// Get port number
-	char input[5000];
-	printf("Enter a port number:");
-	fgets(input, 5000, stdin);
-	port = atoi(input);
-	if (port < 0 || port > 65535) {
-		printf("Please enter a valid port number.");
-		return 1;
-	}
-	printf("%i\n", port);
+	// char input[5000];
+	// printf("Enter a port number:");
+	// fgets(input, 5000, stdin);
+	// port = atoi(input);
+	// if (port < 0 || port > 65535) {
+	// 	printf("Please enter a valid port number.");
+	// 	return 1;
+	// }
+	// printf("%i\n", port);
 
 	// Server needs to know its own address as well as its client
 	struct sockaddr_in serveraddr, clientaddr;
 
 	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_port = htons(port);  //9876
+	serveraddr.sin_port = htons(5555);  //9876
 	// Tell server its own address
 	// INADDR_ANY = any address the computer has, as long as it contains the
 	// port number -- ie we don't care.  Typical way to program a server since
@@ -322,6 +322,11 @@ int main(int argc, char** argv) {
 					// unsigned char* line = new unsigned char[5000];
 					// j is our socket number
 					unsigned int recv_len = recv(j, line, 5000, 0);
+					if(recv_len == 0) {
+						printf("Received zero bytes. Ignoring message.\n");
+						continue;
+					}
+					cout << "received " << recv_len << " bytes\n";
 
 					//if iv is all 0s, this is the symmetric key being sent over
 					int is_sym_key = 1;
@@ -338,6 +343,7 @@ int main(int argc, char** argv) {
 						// FILE* privf = fopen(privfilename,"rb");
 						// privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
 						unsigned char decrypted_key[32];
+						unsigned char encrypted_key[256];  // always the same size?
 						// This is what the server would do.
 						cout << "length: " << encryptedkey_len << endl;
 						cout << (int) line[0] << " ";
@@ -350,9 +356,12 @@ int main(int argc, char** argv) {
 						// 	cout << (int) line[i+16];
 						// }
 						// cout << endl;
-						BIO_dump_fp (stdout, (const char *)line+16, recv_len-16);
+						//BIO_dump_fp (stdout, (const char *)line+16, recv_len-16);
+						// TODO problem here?
+						memcpy(encrypted_key, line+16, 256);
+						BIO_dump_fp (stdout, (const char *)encrypted_key, 256);
 						cout << "decrypting the received symmetric key from client\n";
-						int decryptedkey_len = rsa_decrypt((unsigned char*) line+16, encryptedkey_len, privkey, decrypted_key);
+						int decryptedkey_len = rsa_decrypt((unsigned char*) encrypted_key, encryptedkey_len, privkey, decrypted_key);
 						// int decryptedkey_len = rsa_decrypt(line+16, encryptedkey_len, privkey, decrypted_key);
 						printf("decrypted symmetric key: \n");
 						// for (int i = 0; i < decryptedkey_len; i++) {
