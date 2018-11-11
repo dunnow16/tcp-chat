@@ -323,10 +323,10 @@ int main(int argc, char** argv) {
 					// j is our socket number
 					unsigned int recv_len = recv(j, line, 5000, 0);
 					if(recv_len == 0) {
-						printf("Received zero bytes. Ignoring message.\n");
+						//printf("Received zero bytes. Ignoring message.\n");  // prints repeatedly for some reason at times
 						continue;
 					}
-					cout << "received " << recv_len << " bytes\n";
+					//cout << "received " << recv_len << " bytes\n";
 
 					//if iv is all 0s, this is the symmetric key being sent over
 					int is_sym_key = 1;
@@ -345,11 +345,11 @@ int main(int argc, char** argv) {
 						unsigned char decrypted_key[32];
 						unsigned char encrypted_key[256];  // always the same size?
 						// This is what the server would do.
-						cout << "length: " << encryptedkey_len << endl;
-						cout << (int) line[0] << " ";
-						cout << (int) line[2] << " ";
-						cout << (int) line[3] << " ";
-						cout << (int) line[4] << endl;
+						// cout << "length: " << encryptedkey_len << endl;
+						// cout << (int) line[0] << " ";
+						// cout << (int) line[2] << " ";
+						// cout << (int) line[3] << " ";
+						// cout << (int) line[4] << endl;
 
 						printf("encrypted symmetric key: \n");
 						// for (int i = 0; i < encryptedkey_len; i++) {
@@ -360,8 +360,10 @@ int main(int argc, char** argv) {
 						// TODO problem here?
 						memcpy(encrypted_key, line+16, 256);
 						BIO_dump_fp (stdout, (const char *)encrypted_key, 256);
-						cout << "decrypting the received symmetric key from client\n";
-						int decryptedkey_len = rsa_decrypt((unsigned char*) encrypted_key, encryptedkey_len, privkey, decrypted_key);
+						cout << "decrypting the received symmetric key from client " 
+							<< port2username[j] << endl;
+						int decryptedkey_len = rsa_decrypt((unsigned char*) encrypted_key, 
+							encryptedkey_len, privkey, decrypted_key);
 						// int decryptedkey_len = rsa_decrypt(line+16, encryptedkey_len, privkey, decrypted_key);
 						printf("decrypted symmetric key: \n");
 						// for (int i = 0; i < decryptedkey_len; i++) {
@@ -370,16 +372,18 @@ int main(int argc, char** argv) {
 						// cout << endl;
 						BIO_dump_fp (stdout, (const char *)decrypted_key, decryptedkey_len);
 
-						// map <int, unsigned char*> port2key; //stores symmetric key for each client
+						// map <int, unsigned char*> port2key; //stores symmetric key for each client (declared above)
 						port2key[j] = new unsigned char[decryptedkey_len];
 						memcpy(port2key[j], decrypted_key, decryptedkey_len);
-						cout << "stored key for " << j << " : ";
-						for (int i = 0; i < decryptedkey_len; i++) {
-							cout << (int) port2key[j][i];
-						}
-						cout << endl;
+						cout << "stored key for port " << j << " or client " 
+							<< port2username[j] << ": \n";
+						// for (int i = 0; i < decryptedkey_len; i++) {
+						// 	cout << (int) port2key[j][i];
+						// }
+						// cout << endl;
+						BIO_dump_fp (stdout, (const char*)port2key[j], decryptedkey_len);
 
-					} else {
+					} else {  // a message received from client
 
 						//-----------------------------
 						// decrypt recieved message - server 

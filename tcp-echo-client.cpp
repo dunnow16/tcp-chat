@@ -316,16 +316,16 @@ int main(int argc, char** argv) {
 	BIO_dump_fp (stdout, (const char *)key, 32);  // bin to hex printed
 
 	*( (uint8_t*) (&message)) = encryptedkey_len;
-	*( (int*) (&iv)) = encryptedkey_len;
+	//*( (int*) (&iv)) = encryptedkey_len;
 
-	cout << "real length: " << encryptedkey_len << endl;
-	cout << "length: " << *((int*) (&iv)) << endl;
+	//cout << "real length: " << encryptedkey_len << endl;
+	//cout << "length: " << *((int*) (&iv)) << endl;
 	//printf("iv in hex: %x\n", *((int*) (&iv)));
 	
 	// First part of message is always iv
 	memcpy(message, iv, 16);  // iv all 0 for first 16 bytes?
 	//printf("message in hex: %x\n", message);
-	cout << "m length: " << *((int*) (&iv)) << endl;  // iv unaffected by memcpy
+	//cout << "m length: " << *((int*) (&iv)) << endl;  // iv unaffected by memcpy
 	// Second part is client's symmetric key
 	memcpy(message+16, encrypted_key, encryptedkey_len);
 	fprintf(stderr, "encrypted symmetric key\n");
