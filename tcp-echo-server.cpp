@@ -7,6 +7,10 @@
  * 
  */
 
+//
+// compile: g++ tcp-echo-client.cpp -lcrypto -o c
+//
+
 #include <sys/socket.h> // How to send/receive information over networks
 #include <netinet/in.h> //includes information specific to internet protocol
 #include <stdio.h>
@@ -30,10 +34,6 @@
 #include <string>
 #include <sstream> 
 #include <istream>
-
-//
-// compile: g++ tcp-echo-client.cpp -lcrypto -o c
-//
 
 using namespace std;
 
