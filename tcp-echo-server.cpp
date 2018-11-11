@@ -1,6 +1,8 @@
 /**
  * Owen Dunn, Reuben Wattenhofer, Cody Krueger
  * Project 3: TCP Encrypted Chat Program
+ * CIS 457 Data Communications
+ * 09 NOV 2018
  * 
  * 
  */
@@ -106,12 +108,12 @@ int main(int argc, char** argv) {
 	// // Private key
 	const char *privfilename = "RSApriv.pem";
 	// unsigned char key[32];
-	// unsigned char iv[16];
+	unsigned char iv[16];
 	// unsigned char *plaintext =
 	// 	(unsigned char *)"This is a test string to encrypt.";
-	// unsigned char ciphertext[1024];
-	// unsigned char decryptedtext[1024];
-	// int decryptedtext_len, ciphertext_len;
+	unsigned char ciphertext[2048]; // changed from 1024
+
+	int decryptedtext_len, ciphertext_len;
 	// Initialize cryptography libraries
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
@@ -317,8 +319,9 @@ int main(int argc, char** argv) {
 					char* line = new char[5000];
 					// unsigned char* line = new unsigned char[5000];
 					// j is our socket number
-					recv(j, line, 5000, 0);
+					unsigned int recv_len = recv(j, line, 5000, 0);
 
+					//if iv is all 0s, this is the symmetric key being sent over
 					int is_sym_key = 1;
 					for (int i = 8; i < 16; i++) {
 						if (line[i] != 0) is_sym_key = 0;
@@ -366,14 +369,26 @@ int main(int argc, char** argv) {
 
 					} else {
 
-						// char* thing = (char*) line;
-						char* unencrypted_message = new char[5000];
-						// memcpy (unencrypted_message, &(thing[16]), strlen(&(thing[16])) + 1);
+						//-----------------------------
+						// decrypt recieved message - server 
+						//-----------------------------
+						// create space to hold decrypted text
+						unsigned char unencrypted_message[5000];
+						unsigned char decryptedtext_uc[2048];
+
+						// seperate iv and the encrypted text
 						memcpy (unencrypted_message, &(line[16]), strlen(&(line[16])) + 1);
+						memcpy (iv, line, 16);
 
+						// decrypt the text and put it in decrypted message
+						decryptedtext_len = decrypt(unencrypted_message, recv_len, port2key[j], iv, decryptedtext_uc);
+						//convert the returned unsigned char into a char* for better compatibility
+						//char* decryptedtext = new char[2048];
+						char decryptedtext[2048];
+						memcpy(decryptedtext, decryptedtext_uc, decryptedtext_len);
 
-						printf("Client: %s", unencrypted_message);
-						if (strcmp(unencrypted_message, "quit\n") == 0) {
+						printf("Client: %s", decryptedtext);
+						if (strcmp(decryptedtext, "quit\n") == 0) {
 							printf("client exit\n");
 							// quit = 1;
 							// quit = 1;
@@ -386,7 +401,7 @@ int main(int argc, char** argv) {
 							FD_CLR(j, &sockets);
 							break;
 						}
-						else if (strncmp(unencrypted_message, "ls", 2) == 0 ) {
+						else if (strncmp(decryptedtext, "ls", 2) == 0 ) {
 							cout << "clients" << endl;
 
 							stringstream clients;
@@ -403,13 +418,13 @@ int main(int argc, char** argv) {
 							send(j, result, strlen(result)+1, 0);
 
 						}
-						else if (strncmp(unencrypted_message, "bc", 2) == 0 ) {
+						else if (strncmp(decryptedtext, "bc", 2) == 0 ) {
 							char message[5000];
 							memcpy(message, port2username[j], 2);
 							message[2] = ':';
 							message[3] = ' ';
 
-							memcpy(message+4, unencrypted_message+2, strlen(unencrypted_message)-1);
+							memcpy(message+4, decryptedtext+2, strlen(decryptedtext)-1);
 							typedef std::map< string, int >::iterator outer_iterator ;
 							for( outer_iterator outer = username2port.begin() ; outer != username2port.end() ; ++outer )
 							{
@@ -419,9 +434,9 @@ int main(int argc, char** argv) {
 							}
 
 						}
-						else if (strncmp(unencrypted_message, "c", 1) == 0 ) {
+						else if (strncmp(decryptedtext, "c", 1) == 0 ) {
 							string key = "c_";
-							key[1] = unencrypted_message[1];
+							key[1] = decryptedtext[1];
 							string fr = "c_";
 							fr[1] = port2username[j][1];
 							if (username2port.find(key) == username2port.end()) {
@@ -434,19 +449,19 @@ int main(int argc, char** argv) {
 								message[2] = ':';
 								message[3] = ' ';
 
-								memcpy(message+4, unencrypted_message+2, strlen(unencrypted_message)-1);
+								memcpy(message+4, decryptedtext+2, strlen(decryptedtext)-1);
 
 								send(username2port[key], message, strlen(message)+1, 0);
 							}
 						}
-						else if (strncmp(unencrypted_message, "kick", 4) == 0 ) {
-							string s_line(unencrypted_message);
+						else if (strncmp(decryptedtext, "kick", 4) == 0 ) {
+							string s_line(decryptedtext);
 							std::size_t found = s_line.find("password");
 							//if password is found
 							if (found!=std::string::npos) {
 								//if (strncmp(line, "c", 4) == 0 )
 								string key1 = "c_"; //TODO currently only 9 clients possible from this implimentation
-								key1[1] = unencrypted_message[6]; //key should = cX, where X is the client num 
+								key1[1] = decryptedtext[6]; //key should = cX, where X is the client num 
 								//client (c#) not found in keys
 								if (username2port.find(key1) == username2port.end()) {
 									string error = "No client with that name exists. Try using ls or bc\n";
