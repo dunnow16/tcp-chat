@@ -305,7 +305,7 @@ int main(int argc, char** argv) {
 
 					// Send message to all clients
 					for (int i  = 0; i < FD_SETSIZE; i++) {
-						// send line to a client (let's hope there's only one connected - TODO this still relevant?)
+						// send line to all clients
 						if(FD_ISSET(i, &sockets) && i != sockfd && i != STDIN_FILENO) {
 							send(i, line, strlen(line)+1, 0);
 						}
@@ -392,12 +392,15 @@ int main(int argc, char** argv) {
 						unsigned char unencrypted_message[5000];
 						unsigned char decryptedtext_uc[2048];
 
+						printf("hi1\n");
 						// seperate iv and the encrypted text
 						memcpy (unencrypted_message, &(line[16]), strlen(&(line[16])) + 1);
 						memcpy (iv, line, 16);
 
+						printf("hi1\n");
 						// decrypt the text and put it in decrypted message
-						decryptedtext_len = decrypt(unencrypted_message, recv_len, port2key[j], iv, decryptedtext_uc);
+						decryptedtext_len = decrypt(unencrypted_message, recv_len-16, port2key[j], iv, decryptedtext_uc);
+						decryptedtext_uc[decryptedtext_len] = '\0';
 						//convert the returned unsigned char into a char* for better compatibility
 						//char* decryptedtext = new char[2048];
 						char decryptedtext[2048];
@@ -431,7 +434,24 @@ int main(int argc, char** argv) {
 							}
 							string r = clients.str();
 							const char* result = r.c_str();
-							send(j, result, strlen(result)+1, 0);
+
+							unsigned char* encrypted_message = new unsigned char[5000];
+							// Set iv to something random and fun
+							unsigned char iv[16];
+							RAND_pseudo_bytes(iv, 16);
+
+							//encrypt line here using symmetric key
+							ciphertext_len = encrypt((unsigned char*)result, strlen(result), port2key[j], iv, &(encrypted_message[16]));
+
+							// First part of message is always iv
+							memcpy(encrypted_message, iv, 16);
+
+
+							// Second part is encrypted line from client
+							// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+
+							// send(j, result, strlen(result)+1, 0);
+							send(j, encrypted_message, ciphertext_len+16, 0);
 
 						}
 						else if (strncmp(decryptedtext, "bc", 2) == 0 ) {
@@ -445,7 +465,20 @@ int main(int argc, char** argv) {
 							for( outer_iterator outer = username2port.begin() ; outer != username2port.end() ; ++outer )
 							{
 								if (username2port[outer->first] != j) {
-									send(username2port[outer->first], message, strlen(message)+1, 0);
+									unsigned char* encrypted_message = new unsigned char[5000];
+									// Set iv to something random and fun
+									unsigned char iv[16];
+									RAND_pseudo_bytes(iv, 16);
+
+									//encrypt line here using symmetric key
+									ciphertext_len = encrypt((unsigned char*)message, strlen(message), port2key[username2port[outer->first]], iv, &(encrypted_message[16]));
+
+									// First part of message is always iv
+									memcpy(encrypted_message, iv, 16);
+
+									// send(j, encrypted_message, ciphertext_len+16, 0);
+									send(username2port[outer->first], encrypted_message, ciphertext_len+16, 0);
+									// send(username2port[outer->first], message, strlen(message)+1, 0);
 								}
 							}
 

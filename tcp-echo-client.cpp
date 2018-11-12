@@ -432,6 +432,13 @@ int main(int argc, char** argv) {
 					memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
 					//memcpy(&(encrypted_message[16]), line, strlen(line)); dep
 
+					decryptedtext_len = decrypt((unsigned char*)&(encrypted_message[16]), ciphertext_len, key, iv,
+									decryptedtext);
+					decryptedtext[decryptedtext_len] = '\0';
+					printf("Decrypted text is:\n");
+					printf("%s\n", decryptedtext);
+
+
 					//send(sockfd, line, strlen(line)+1, 0); dep
 					//send(sockfd, encrypted_message, strlen(line)+1 + 16, 0); dep
 					cout << "Sending message to server\n";
