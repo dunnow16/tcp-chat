@@ -226,22 +226,22 @@ int main(int argc, char** argv) {
 	}
 	//printf("%i\n", port);
 
-	// printf("Enter an ip address: ");
-	// fgets(input, 5000, stdin);
-	// //Copy the data from input to ipaddress
-	// for (int i = 0; i < 50; i++) {
-	// 	if (input[i] == '\n') {
-	// 		ipaddress[i] = '\0';
-	// 		break;
-	// 	} else {
-	// 		ipaddress[i] = input[i];
-	// 	}
-	// }
-	// //printf("%s\n", ipaddress);
-	// if ( !isValidIpAddress(ipaddress) ) {
-	// 		printf("Invalid ipv4 address.\n");
-	// 		return 2;
-	// }
+	printf("Enter an ip address: ");
+	fgets(input, 5000, stdin);
+	//Copy the data from input to ipaddress
+	for (int i = 0; i < 50; i++) {
+		if (input[i] == '\n') {
+			ipaddress[i] = '\0';
+			break;
+		} else {
+			ipaddress[i] = input[i];
+		}
+	}
+	//printf("%s\n", ipaddress);
+	if ( !isValidIpAddress(ipaddress) ) {
+			printf("Invalid ipv4 address.\n");
+			return 2;
+	}
 
 	// on backend, stream sockets use a transport protocol called tcp
 	// When you open a file, it's assigned a file description integer to identify
@@ -272,7 +272,7 @@ int main(int argc, char** argv) {
 	// What number should we use? arbitrary, but use for client and server;
 	// needs to be within a certain range.
 	serveraddr.sin_port = htons(port); //9876 will end up being sent with the data
-	serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost; good for
+	serveraddr.sin_addr.s_addr = inet_addr(ipaddress);//"127.0.0.1"); //localhost; good for
 	//testing programs "127.0.0.1" is localhost
 
 	//connect() works for any socket types, not just internet sockets, so we
