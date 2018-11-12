@@ -1,12 +1,12 @@
 /**
  * Owen Dunn, Reuben Wattenhofer, Cody Krueger
  * Project 3: TCP Encrypted Chat Program
- * 
- * 
+ * CIS 457 Data Communications
+ * 12 NOV 2018
  */
 
 //compile with
-//compile: g++ tcp-echo-client.cpp -lcrypto -o c
+//compile: g++ tcp-chat-client.cpp -lcrypto -o c
 //Run with
 // ./client
 // test file differences with
@@ -128,6 +128,15 @@ int isValidIpAddress(char *ipAddress) {
 }
 
 
+/**
+ * This function sets all of a string's characters to the terminator to
+ * prevent old data from effecting the next use of the string.
+ */
+void clearBuffer(char* b) {
+    memset(b, '\0', strlen(b));
+}
+
+
 int main(int argc, char** argv) {
 
 	// //------------------------------
@@ -224,6 +233,7 @@ int main(int argc, char** argv) {
 		printf("Please enter a valid port number.");
 		return 1;
 	}
+	memset(input, '\0', 5000);
 	//printf("%i\n", port);
 
 	printf("Enter an ip address: ");
@@ -242,6 +252,7 @@ int main(int argc, char** argv) {
 			printf("Invalid ipv4 address.\n");
 			return 2;
 	}
+	memset(input, '\0', 5000);
 
 	// on backend, stream sockets use a transport protocol called tcp
 	// When you open a file, it's assigned a file description integer to identify
@@ -414,6 +425,9 @@ int main(int argc, char** argv) {
 						quit = 1;
 						break;
 					}
+
+					memset(line2, '\0', 10000);
+					memset(decryptedtext, '\0', 2048);
 				} else if (j == STDIN_FILENO) {
 					//printf(" yes what's your pleasure ");
 					char line[5000];
@@ -449,6 +463,10 @@ int main(int argc, char** argv) {
 						quit = 1;
 						break;
 					}
+
+					delete(encrypted_message);
+					memset(ciphertext, '\0', 2048);
+					memset(line, '\0', 10000);
 				}
 			}
 		}

@@ -2,13 +2,11 @@
  * Owen Dunn, Reuben Wattenhofer, Cody Krueger
  * Project 3: TCP Encrypted Chat Program
  * CIS 457 Data Communications
- * 09 NOV 2018
- * 
- * 
+ * 12 NOV 2018
  */
 
 //
-// compile: g++ tcp-echo-client.cpp -lcrypto -o c
+// compile: g++ tcp-chat-server.cpp -lcrypto -o s
 //
 
 #include <sys/socket.h> // How to send/receive information over networks
@@ -41,11 +39,13 @@ map <int, char*>  port2username;
 map <string, int>  username2port;
 map <int, unsigned char*> port2key; //stores symmetric key for each client
 
+
 void handleErrors(void)
 {
   ERR_print_errors_fp(stderr);
   abort();
 }
+
 
 int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* out){ 
   EVP_PKEY_CTX *ctx;
@@ -64,6 +64,7 @@ int rsa_decrypt(unsigned char* in, size_t inlen, EVP_PKEY *key, unsigned char* o
   return outlen;
 }
 
+
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
 	unsigned char *iv, unsigned char *ciphertext){
   EVP_CIPHER_CTX *ctx;
@@ -81,6 +82,7 @@ int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
   return ciphertext_len;
 }
 
+
 int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
 	    unsigned char *iv, unsigned char *plaintext){
   EVP_CIPHER_CTX *ctx;
@@ -96,6 +98,15 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
   plaintext_len += len;
   EVP_CIPHER_CTX_free(ctx);
   return plaintext_len;
+}
+
+
+/**
+ * This function sets all of a string's characters to the terminator to
+ * prevent old data from effecting the next use of the string.
+ */
+void clearBuffer(char* b) {
+    memset(b, '\0', strlen(b));
 }
 
 
@@ -324,6 +335,7 @@ int main(int argc, char** argv) {
 
 							// using good coding practice
 							delete(encrypted_message);
+							memset(ciphertext, '\0', 4096);  // clear old data
 
 							//send(i, line, strlen(line)+1, 0);
 						}
@@ -331,6 +343,7 @@ int main(int argc, char** argv) {
 					// end server session after sending "quit\n" to all clients
 					if (strcmp(line, "quit\n") == 0) {  
 						quit = 1;
+						memset(line, '\0', 5000);
 						break;
 					}
 				} else {
@@ -375,7 +388,6 @@ int main(int argc, char** argv) {
 						// }
 						// cout << endl;
 						//BIO_dump_fp (stdout, (const char *)line+16, recv_len-16);
-						// TODO problem here?
 						memcpy(encrypted_key, line+16, 256);
 						BIO_dump_fp (stdout, (const char *)encrypted_key, 256);
 						cout << "decrypting the received symmetric key from client " 
@@ -400,6 +412,10 @@ int main(int argc, char** argv) {
 						// }
 						// cout << endl;
 						// BIO_dump_fp (stdout, (const char*)port2key[j], decryptedkey_len);
+
+						memset(line, '\0', 5000);
+						memset(decrypted_key, '\0', 32);
+						memset(encrypted_key, '\0', 256);
 
 					} else {  // a message received from client: iv for first 16 bytes, then encrypted messsage
 
@@ -437,6 +453,10 @@ int main(int argc, char** argv) {
 
 							close(j);
 							FD_CLR(j, &sockets);
+							memset(line, '\0', 5000);
+							memset(decryptedtext_uc, '\0', 4096);
+							memset(unencrypted_message, '\0', 5000);
+							memset(decryptedtext, '\0', 4096);
 							break;
 						}
 						else if (strncmp(decryptedtext, "ls", 2) == 0 ) {
@@ -465,13 +485,17 @@ int main(int argc, char** argv) {
 							// First part of message is always iv
 							memcpy(encrypted_message, iv, 16);
 
-
 							// Second part is encrypted line from client
 							// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
 
 							// send(j, result, strlen(result)+1, 0);
 							send(j, encrypted_message, ciphertext_len+16, 0);
 
+							memset(line, '\0', 5000);
+							memset(decryptedtext_uc, '\0', 4096);
+							memset(unencrypted_message, '\0', 5000);
+							memset(decryptedtext, '\0', 4096);
+							delete(encrypted_message);
 						}
 						else if (strncmp(decryptedtext, "bc", 2) == 0 ) {
 							char message[5000];
@@ -498,9 +522,14 @@ int main(int argc, char** argv) {
 									// send(j, encrypted_message, ciphertext_len+16, 0);
 									send(username2port[outer->first], encrypted_message, ciphertext_len+16, 0);
 									// send(username2port[outer->first], message, strlen(message)+1, 0);
+									delete(encrypted_message);
 								}
 							}
-
+							memset(message, '\0', 5000);
+							memset(line, '\0', 5000);
+							memset(decryptedtext_uc, '\0', 4096);
+							memset(unencrypted_message, '\0', 5000);
+							memset(decryptedtext, '\0', 4096);
 						}
 						else if (strncmp(decryptedtext, "c", 1) == 0 ) {
 							string key = "c_";
@@ -527,6 +556,11 @@ int main(int argc, char** argv) {
 								//send(j, error.c_str(), strlen(error.c_str())+1, 0);
 
 								delete(encrypted_message);
+								memset(line, '\0', 5000);
+								memset(decryptedtext_uc, '\0', 4096);
+								memset(unencrypted_message, '\0', 5000);
+								memset(decryptedtext, '\0', 4096);
+								memset(ciphertext, '\0', 4096);
 							}
 							else {
 								char message[5000];
@@ -551,6 +585,12 @@ int main(int argc, char** argv) {
 
 								// using good coding practice
 								delete(encrypted_message);
+								memset(line, '\0', 5000);
+								memset(decryptedtext_uc, '\0', 4096);
+								memset(unencrypted_message, '\0', 5000);
+								memset(decryptedtext, '\0', 4096);
+								memset(ciphertext, '\0', 4096);
+								memset(message, '\0', 5000);
 							}
 						}
 						else if (strncmp(decryptedtext, "kick", 4) == 0 ) {
@@ -587,6 +627,13 @@ int main(int argc, char** argv) {
 									send(j, encrypted_message, ciphertext_len+16, 0);
 
 									// send(j, error.c_str(), strlen(error.c_str())+1, 0); //c_str returns c char array from c++ string
+
+									delete(encrypted_message);
+									memset(line, '\0', 5000);
+									memset(decryptedtext_uc, '\0', 4096);
+									memset(unencrypted_message, '\0', 5000);
+									memset(decryptedtext, '\0', 4096);
+									memset(ciphertext, '\0', 4096);
 								}
 								//if client is found
 								else {
@@ -621,6 +668,13 @@ int main(int argc, char** argv) {
 
 									close(k);
 									FD_CLR(k, &sockets);
+									
+									delete(encrypted_message);
+									memset(line, '\0', 5000);
+									memset(decryptedtext_uc, '\0', 4096);
+									memset(unencrypted_message, '\0', 5000);
+									memset(decryptedtext, '\0', 4096);
+									memset(ciphertext, '\0', 4096);
 								}
 							}
 						}
