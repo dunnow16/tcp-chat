@@ -304,10 +304,28 @@ int main(int argc, char** argv) {
 					//printf("%s\n", line);			
 
 					// Send message to all clients
+					//optional server broadcast functionality
 					for (int i  = 0; i < FD_SETSIZE; i++) {
 						// send line to a client (let's hope there's only one connected - TODO this still relevant?)
 						if(FD_ISSET(i, &sockets) && i != sockfd && i != STDIN_FILENO) {
-							send(i, line, strlen(line)+1, 0);
+							
+							//encrypt message
+							char* encrypted_message = new char[5000];
+							// Set iv to something random and fun
+							RAND_pseudo_bytes(iv, 16);
+							// First part of message is always iv
+							memcpy(encrypted_message, iv, 16);
+							//encrypt decryptedtext here using symmetric key
+							ciphertext_len = encrypt((unsigned char*)line, strlen(line), port2key[i], iv, ciphertext);
+							// Second part is encrypted line from client
+							memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
+
+							send(i, encrypted_message, ciphertext_len + 16, 0);
+
+							// using good coding practice
+							delete(encrypted_message);
+
+							//send(i, line, strlen(line)+1, 0);
 						}
 					}
 					// end server session after sending "quit\n" to all clients
@@ -457,7 +475,24 @@ int main(int argc, char** argv) {
 							fr[1] = port2username[j][1];
 							if (username2port.find(key) == username2port.end()) {
 								string error = "No client with that name exists. Try using ls or bc\n";
-								send(j, error.c_str(), strlen(error.c_str())+1, 0);
+								//example of a type cast from string to c string
+								const char* result = (const char*)error.c_str(); //.c_str returns a const char* so this is redundant but would be what we do for an unsigned char*
+
+								//encrypt message
+								char* encrypted_message = new char[5000];
+								// Set iv to something random and fun
+								RAND_pseudo_bytes(iv, 16);
+								// First part of message is always iv
+								memcpy(encrypted_message, iv, 16);
+								//encrypt decryptedtext here using symmetric key
+								ciphertext_len = encrypt((unsigned char*)result, strlen(result), port2key[j], iv, ciphertext);
+								// Second part is encrypted line from client
+								memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
+
+								send(j, encrypted_message, ciphertext_len + 16, 0);
+								//send(j, error.c_str(), strlen(error.c_str())+1, 0);
+
+								delete(encrypted_message);
 							}
 							else {
 								char message[5000];
@@ -479,6 +514,9 @@ int main(int argc, char** argv) {
 								memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
 
 								send(username2port[key], encrypted_message, ciphertext_len + 16, 0);
+
+								// using good coding practice
+								delete(encrypted_message);
 							}
 						}
 						else if (strncmp(decryptedtext, "kick", 4) == 0 ) {
