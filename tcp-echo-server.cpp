@@ -1,8 +1,15 @@
 /**
  * Owen Dunn, Reuben Wattenhofer, Cody Krueger
  * Project 3: TCP Encrypted Chat Program
+ * CIS 457 Data Communications
+ * 09 NOV 2018
+ * 
  * 
  */
+
+//
+// compile: g++ tcp-echo-client.cpp -lcrypto -o c
+//
 
 #include <sys/socket.h> // How to send/receive information over networks
 #include <netinet/in.h> //includes information specific to internet protocol
@@ -101,12 +108,12 @@ int main(int argc, char** argv) {
 	// // Private key
 	const char *privfilename = "RSApriv.pem";
 	// unsigned char key[32];
-	// unsigned char iv[16];
+	unsigned char iv[16];
 	// unsigned char *plaintext =
 	// 	(unsigned char *)"This is a test string to encrypt.";
-	// unsigned char ciphertext[1024];
-	// unsigned char decryptedtext[1024];
-	// int decryptedtext_len, ciphertext_len;
+	unsigned char ciphertext[4096]; // changed from 1024
+
+	int decryptedtext_len, ciphertext_len;
 	// Initialize cryptography libraries
 	ERR_load_crypto_strings();
 	OpenSSL_add_all_algorithms();
@@ -147,8 +154,8 @@ int main(int argc, char** argv) {
 	// // BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
 	// Read private key
-	FILE* privf = fopen(privfilename,"rb");
-	privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
+	FILE* privf = fopen(privfilename, "rb");
+	privkey = PEM_read_PrivateKey(privf, NULL, NULL, NULL);
 	// unsigned char decrypted_key[32];
 	// // This is what the server would do.
 	// int decryptedkey_len = rsa_decrypt(encrypted_key, encryptedkey_len, privkey, decrypted_key); 
@@ -166,7 +173,6 @@ int main(int argc, char** argv) {
 	// ERR_free_strings();
 	// //------------------------------
 
-
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	int port;
 
@@ -180,22 +186,23 @@ int main(int argc, char** argv) {
 	char input[5000];
 	printf("Enter a port number:");
 	fgets(input, 5000, stdin);
-
 	port = atoi(input);
-	printf("%i\n", port);
-
+	if (port < 0 || port > 65535) {
+		printf("Please enter a valid port number.");
+		return 1;
+	}
+	// printf("%i\n", port);
 
 	// Server needs to know its own address as well as its client
 	struct sockaddr_in serveraddr, clientaddr;
 
-
 	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_port=htons(port);  //9876
+	serveraddr.sin_port = htons(port);  //9876
 	// Tell server its own address
 	// INADDR_ANY = any address the computer has, as long as it contains the
 	// port number -- ie we don't care.  Typical way to program a server since
 	// we have no idea what the computer address might be.
-	serveraddr.sin_addr.s_addr=INADDR_ANY;
+	serveraddr.sin_addr.s_addr = INADDR_ANY;
 
 	// bind() associates serveraddr with the socket
 	// "anything sent to this address should be received on this socket"
@@ -218,8 +225,10 @@ int main(int argc, char** argv) {
 	printf("\nEnter \"quit\" to end the session.\n");
     printf("Otherwise enter a message to send a broadcast to clients.\n");
 
-	int quit = 0;
-	// Infinite loops are pretty common with servers.
+	
+	// Run loop to receive, forward, and send messages until "quit" entered.
+	// -Infinite loops are pretty common with servers.
+	int quit = 0;  // a flag to mark end of session
 	while(quit == 0) {
 		fd_set tmp_set = sockets;
 		//checks to see if we can read from the sockets
@@ -245,9 +254,9 @@ int main(int argc, char** argv) {
 					// We need to create a new socket for each client
 					int clientsocket = accept(sockfd, (struct sockaddr*)&clientaddr, (socklen_t*) &len);
 					FD_SET(clientsocket, &sockets);
+
 					// Create a distinct username
 					string username = "c1";
-
 					int num = 0;
 					while ( username2port.find(username) != username2port.end() ) {
 						num++;
@@ -258,7 +267,6 @@ int main(int argc, char** argv) {
 					memcpy(port2username[clientsocket], (char *) username.c_str(), 3);
 					cout << "client name: " << username << " socket: " << username2port[username] << endl;
 					// cout << "socket: " << clientsocket << " username: " << port2username[clientsocket] << endl;
-
 
 					// int excit = 0;
 					// int num = 0;
@@ -289,31 +297,56 @@ int main(int argc, char** argv) {
 					// 	// cout << "num: " << num << endl;
 
 					// }
-				} else if (j == STDIN_FILENO) {
+				} else if (j == STDIN_FILENO) {  // message originating from server
 					//printf(" yes what's your pleasure ");
 					char line[5000];
 					fgets(line, 5000, stdin);
 					//printf("%s\n", line);			
 
+					// Send message to all clients
+					//optional server broadcast functionality
 					for (int i  = 0; i < FD_SETSIZE; i++) {
-						// send line to a client (let's hope there's only one connected)
+						// send line to all clients
 						if(FD_ISSET(i, &sockets) && i != sockfd && i != STDIN_FILENO) {
-							send(i, line, strlen(line)+1, 0);
+							
+							//encrypt message
+							char* encrypted_message = new char[5000];
+							// Set iv to something random and fun
+							RAND_pseudo_bytes(iv, 16);
+							// First part of message is always iv
+							memcpy(encrypted_message, iv, 16);
+							//encrypt decryptedtext here using symmetric key
+							ciphertext_len = encrypt((unsigned char*)line, strlen(line), port2key[i], iv, ciphertext);
+							// Second part is encrypted line from client
+							memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
+
+							send(i, encrypted_message, ciphertext_len + 16, 0);
+
+							// using good coding practice
+							delete(encrypted_message);
+
+							//send(i, line, strlen(line)+1, 0);
 						}
 					}
-					if (strcmp(line, "quit\n") == 0) {
+					// end server session after sending "quit\n" to all clients
+					if (strcmp(line, "quit\n") == 0) {  
 						quit = 1;
 						break;
 					}
-
 				} else {
 					// cout << "got message" << endl;
 					// Sending and receiving works the same for the server as the client.
-					char* line = new char[5000];
+					char* line = new char[5000];  // TODO will mem leaks cause a crash if runs too long?
 					// unsigned char* line = new unsigned char[5000];
 					// j is our socket number
-					recv(j, line, 5000, 0);
+					unsigned int recv_len = recv(j, line, 5000, 0);
+					if(recv_len == 0) {
+						//printf("Received zero bytes. Ignoring message.\n");  // prints repeatedly for some reason at times
+						continue;
+					}
+					//cout << "received " << recv_len << " bytes\n";
 
+					//if iv is all 0s, this is the symmetric key being sent over
 					int is_sym_key = 1;
 					for (int i = 8; i < 16; i++) {
 						if (line[i] != 0) is_sym_key = 0;
@@ -328,47 +361,71 @@ int main(int argc, char** argv) {
 						// FILE* privf = fopen(privfilename,"rb");
 						// privkey = PEM_read_PrivateKey(privf,NULL,NULL,NULL);
 						unsigned char decrypted_key[32];
+						unsigned char encrypted_key[256];  // always the same size?
 						// This is what the server would do.
-						cout << "length: " << encryptedkey_len << endl;
-						cout << (int) line[0] << " ";
-						cout << (int) line[2] << " ";
-						cout << (int) line[3] << " ";
-						cout << (int) line[4] << endl;
+						// cout << "length: " << encryptedkey_len << endl;
+						// cout << (int) line[0] << " ";
+						// cout << (int) line[2] << " ";
+						// cout << (int) line[3] << " ";
+						// cout << (int) line[4] << endl;
 
-						printf("symmetric key: \n");
-						for (int i = 0; i < encryptedkey_len; i++) {
-							cout << (int) line[i+16];
-						}
-						cout << endl;
-
-						int decryptedkey_len = rsa_decrypt((unsigned char*) line+16, encryptedkey_len, privkey, decrypted_key);
+						printf("encrypted symmetric key: \n");
+						// for (int i = 0; i < encryptedkey_len; i++) {
+						// 	cout << (int) line[i+16];
+						// }
+						// cout << endl;
+						//BIO_dump_fp (stdout, (const char *)line+16, recv_len-16);
+						// TODO problem here?
+						memcpy(encrypted_key, line+16, 256);
+						BIO_dump_fp (stdout, (const char *)encrypted_key, 256);
+						cout << "decrypting the received symmetric key from client " 
+							<< port2username[j] << endl;
+						int decryptedkey_len = rsa_decrypt((unsigned char*) encrypted_key, 
+							encryptedkey_len, privkey, decrypted_key);
 						// int decryptedkey_len = rsa_decrypt(line+16, encryptedkey_len, privkey, decrypted_key);
-
 						printf("decrypted symmetric key: \n");
-						for (int i = 0; i < decryptedkey_len; i++) {
-							cout << (int) decrypted_key[i];
-						}
-						cout << endl;
+						// for (int i = 0; i < decryptedkey_len; i++) {
+						// 	cout << (int) decrypted_key[i];
+						// }
+						// cout << endl;
+						BIO_dump_fp (stdout, (const char *)decrypted_key, decryptedkey_len);
 
-						// map <int, unsigned char*> port2key; //stores symmetric key for each client
+						// map <int, unsigned char*> port2key; //stores symmetric key for each client (declared above)
 						port2key[j] = new unsigned char[decryptedkey_len];
 						memcpy(port2key[j], decrypted_key, decryptedkey_len);
-						cout << "stored key for " << j << " : ";
-						for (int i = 0; i < decryptedkey_len; i++) {
-							cout << (int) port2key[j][i];
-						}
-						cout << endl;
+						cout << "stored key for port " << j << " or client " 
+							<< port2username[j] << " \n";
+						// for (int i = 0; i < decryptedkey_len; i++) {
+						// 	cout << (int) port2key[j][i];
+						// }
+						// cout << endl;
+						// BIO_dump_fp (stdout, (const char*)port2key[j], decryptedkey_len);
 
-					} else {
+					} else {  // a message received from client: iv for first 16 bytes, then encrypted messsage
 
-						// char* thing = (char*) line;
-						char* unencrypted_message = new char[5000];
-						// memcpy (unencrypted_message, &(thing[16]), strlen(&(thing[16])) + 1);
+						//-----------------------------
+						// decrypt recieved message - server 
+						//-----------------------------
+						// create space to hold decrypted text
+						unsigned char unencrypted_message[5000];
+						unsigned char decryptedtext_uc[4096];
+
+						// printf("hi1\n");
+						// seperate iv and the encrypted text
 						memcpy (unencrypted_message, &(line[16]), strlen(&(line[16])) + 1);
+						memcpy (iv, line, 16);
 
+						// printf("hi1\n");
+						// decrypt the text and put it in decrypted message
+						decryptedtext_len = decrypt(unencrypted_message, recv_len-16, port2key[j], iv, decryptedtext_uc);
+						decryptedtext_uc[decryptedtext_len] = '\0';
+						//convert the returned unsigned char into a char* for better compatibility
+						//char* decryptedtext = new char[2048];
+						char decryptedtext[4096];
+						memcpy(decryptedtext, decryptedtext_uc, decryptedtext_len);
 
-						printf("Client: %s", unencrypted_message);
-						if (strcmp(unencrypted_message, "quit\n") == 0) {
+						printf("Client: %s", decryptedtext);
+						if (strncmp(decryptedtext, "quit", 4) == 0) {
 							printf("client exit\n");
 							// quit = 1;
 							// quit = 1;
@@ -376,12 +433,13 @@ int main(int argc, char** argv) {
 							string s(port2username[j]);
 							port2username.erase(j);
 							username2port.erase(s);
+							port2key.erase(j);
 
 							close(j);
 							FD_CLR(j, &sockets);
 							break;
 						}
-						else if (strncmp(unencrypted_message, "ls", 2) == 0 ) {
+						else if (strncmp(decryptedtext, "ls", 2) == 0 ) {
 							cout << "clients" << endl;
 
 							stringstream clients;
@@ -395,33 +453,80 @@ int main(int argc, char** argv) {
 							}
 							string r = clients.str();
 							const char* result = r.c_str();
-							send(j, result, strlen(result)+1, 0);
+							
+							unsigned char* encrypted_message = new unsigned char[5000];
+							// Set iv to something random and fun
+							unsigned char iv[16];
+							RAND_pseudo_bytes(iv, 16);
+
+							//encrypt line here using symmetric key
+							ciphertext_len = encrypt((unsigned char*)result, strlen(result), port2key[j], iv, &(encrypted_message[16]));
+
+							// First part of message is always iv
+							memcpy(encrypted_message, iv, 16);
+
+
+							// Second part is encrypted line from client
+							// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+
+							// send(j, result, strlen(result)+1, 0);
+							send(j, encrypted_message, ciphertext_len+16, 0);
 
 						}
-						else if (strncmp(unencrypted_message, "bc", 2) == 0 ) {
+						else if (strncmp(decryptedtext, "bc", 2) == 0 ) {
 							char message[5000];
 							memcpy(message, port2username[j], 2);
 							message[2] = ':';
 							message[3] = ' ';
 
-							memcpy(message+4, unencrypted_message+2, strlen(unencrypted_message)-1);
+							memcpy(message+4, decryptedtext+2, strlen(decryptedtext)-1);
 							typedef std::map< string, int >::iterator outer_iterator ;
 							for( outer_iterator outer = username2port.begin() ; outer != username2port.end() ; ++outer )
 							{
 								if (username2port[outer->first] != j) {
-									send(username2port[outer->first], message, strlen(message)+1, 0);
+									unsigned char* encrypted_message = new unsigned char[5000];
+									// Set iv to something random and fun
+									unsigned char iv[16];
+									RAND_pseudo_bytes(iv, 16);
+
+									//encrypt line here using symmetric key
+									ciphertext_len = encrypt((unsigned char*)message, strlen(message), port2key[username2port[outer->first]], iv, &(encrypted_message[16]));
+
+									// First part of message is always iv
+									memcpy(encrypted_message, iv, 16);
+
+									// send(j, encrypted_message, ciphertext_len+16, 0);
+									send(username2port[outer->first], encrypted_message, ciphertext_len+16, 0);
+									// send(username2port[outer->first], message, strlen(message)+1, 0);
 								}
 							}
 
 						}
-						else if (strncmp(unencrypted_message, "c", 1) == 0 ) {
+						else if (strncmp(decryptedtext, "c", 1) == 0 ) {
 							string key = "c_";
-							key[1] = unencrypted_message[1];
+							key[1] = decryptedtext[1];
 							string fr = "c_";
 							fr[1] = port2username[j][1];
 							if (username2port.find(key) == username2port.end()) {
 								string error = "No client with that name exists. Try using ls or bc\n";
-								send(j, error.c_str(), strlen(error.c_str())+1, 0);
+								//example of a type cast from string to c string
+								const char* result = (const char*)error.c_str(); //.c_str returns a const char* so this is redundant but would be what we do for an unsigned char*
+
+								//encrypt message
+								char* encrypted_message = new char[5000];
+								// Set iv to something random and fun
+								RAND_pseudo_bytes(iv, 16);
+								// First part of message is always iv
+								memcpy(encrypted_message, iv, 16);
+								//encrypt decryptedtext here using symmetric key
+								ciphertext_len = encrypt((unsigned char*)result, strlen(result), port2key[j], iv, ciphertext);
+								// Second part is encrypted line from client
+								memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
+
+								send(j, encrypted_message, ciphertext_len + 16, 0);
+								//send(j, error.c_str(), strlen(error.c_str())+1, 0);
+
+								delete(encrypted_message);
 							}
 							else {
 								char message[5000];
@@ -429,33 +534,90 @@ int main(int argc, char** argv) {
 								message[2] = ':';
 								message[3] = ' ';
 
-								memcpy(message+4, unencrypted_message+2, strlen(unencrypted_message)-1);
+								memcpy(message+4, decryptedtext+2, strlen(decryptedtext)-1);
 
-								send(username2port[key], message, strlen(message)+1, 0);
+								//encrypt message
+								char* encrypted_message = new char[5000];
+								// Set iv to something random and fun
+								RAND_pseudo_bytes(iv, 16);
+								// First part of message is always iv
+								memcpy(encrypted_message, iv, 16);
+								//encrypt decryptedtext here using symmetric key
+								ciphertext_len = encrypt((unsigned char*)message, strlen(message), port2key[username2port[key]], iv, ciphertext);
+								// Second part is encrypted line from client
+								memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
+
+								send(username2port[key], encrypted_message, ciphertext_len + 16, 0);
+
+								// using good coding practice
+								delete(encrypted_message);
 							}
 						}
-						else if (strncmp(unencrypted_message, "kick", 4) == 0 ) {
-							string s_line(unencrypted_message);
+						else if (strncmp(decryptedtext, "kick", 4) == 0 ) {
+							string s_line(decryptedtext);
 							std::size_t found = s_line.find("password");
 							//if password is found
 							if (found!=std::string::npos) {
 								//if (strncmp(line, "c", 4) == 0 )
 								string key1 = "c_"; //TODO currently only 9 clients possible from this implimentation
-								key1[1] = unencrypted_message[6]; //key should = cX, where X is the client num 
+								key1[1] = decryptedtext[6]; //key should = cX, where X is the client num 
 								//client (c#) not found in keys
 								if (username2port.find(key1) == username2port.end()) {
+									printf("improper format\n");
 									string error = "No client with that name exists. Try using ls or bc\n";
-									send(j, error.c_str(), strlen(error.c_str())+1, 0); //c_str returns c char array from c++ string
+
+									const char* result = error.c_str();
+									
+									unsigned char* encrypted_message = new unsigned char[5000];
+									// Set iv to something random and fun
+									unsigned char iv[16];
+									RAND_pseudo_bytes(iv, 16);
+
+									//encrypt line here using symmetric key
+									ciphertext_len = encrypt((unsigned char*)result, strlen(result), port2key[j], iv, &(encrypted_message[16]));
+
+									// First part of message is always iv
+									memcpy(encrypted_message, iv, 16);
+
+
+									// Second part is encrypted line from client
+									// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+
+									// send(j, result, strlen(result)+1, 0);
+									send(j, encrypted_message, ciphertext_len+16, 0);
+
+									// send(j, error.c_str(), strlen(error.c_str())+1, 0); //c_str returns c char array from c++ string
 								}
 								//if client is found
 								else {
 									//send quit to client to force quit it
+									printf("force client quit\n");
 									char q[] = "quit\n";
-									send(username2port[key1], q, strlen(q)+1, 0);
+
+									unsigned char* encrypted_message = new unsigned char[5000];
+									// Set iv to something random and fun
+									unsigned char iv[16];
+									RAND_pseudo_bytes(iv, 16);
+
+									//encrypt line here using symmetric key
+									ciphertext_len = encrypt((unsigned char*)q, strlen(q), port2key[username2port[key1]], iv, &(encrypted_message[16]));
+
+									// First part of message is always iv
+									memcpy(encrypted_message, iv, 16);
+
+
+									// Second part is encrypted line from client
+									// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+
+									// send(j, result, strlen(result)+1, 0);
+									send(username2port[key1], encrypted_message, ciphertext_len+16, 0);
+
+									// send(username2port[key1], q, strlen(q)+1, 0);
 									// Update maps
 									int k = (username2port[key1]);
 									username2port.erase(key1);
 									port2username.erase(k);
+									port2key.erase(k);
 
 									close(k);
 									FD_CLR(k, &sockets);
