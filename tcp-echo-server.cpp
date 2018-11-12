@@ -183,21 +183,21 @@ int main(int argc, char** argv) {
 	//OS treats devices/sockets as files and gives them an integer for file descriptor
 
 	// Get port number
-	// char input[5000];
-	// printf("Enter a port number:");
-	// fgets(input, 5000, stdin);
-	// port = atoi(input);
-	// if (port < 0 || port > 65535) {
-	// 	printf("Please enter a valid port number.");
-	// 	return 1;
-	// }
+	char input[5000];
+	printf("Enter a port number:");
+	fgets(input, 5000, stdin);
+	port = atoi(input);
+	if (port < 0 || port > 65535) {
+		printf("Please enter a valid port number.");
+		return 1;
+	}
 	// printf("%i\n", port);
 
 	// Server needs to know its own address as well as its client
 	struct sockaddr_in serveraddr, clientaddr;
 
 	serveraddr.sin_family = AF_INET;
-	serveraddr.sin_port = htons(5555);  //9876
+	serveraddr.sin_port = htons(port);  //9876
 	// Tell server its own address
 	// INADDR_ANY = any address the computer has, as long as it contains the
 	// port number -- ie we don't care.  Typical way to program a server since
@@ -392,12 +392,12 @@ int main(int argc, char** argv) {
 						unsigned char unencrypted_message[5000];
 						unsigned char decryptedtext_uc[4096];
 
-						printf("hi1\n");
+						// printf("hi1\n");
 						// seperate iv and the encrypted text
 						memcpy (unencrypted_message, &(line[16]), strlen(&(line[16])) + 1);
 						memcpy (iv, line, 16);
 
-						printf("hi1\n");
+						// printf("hi1\n");
 						// decrypt the text and put it in decrypted message
 						decryptedtext_len = decrypt(unencrypted_message, recv_len-16, port2key[j], iv, decryptedtext_uc);
 						decryptedtext_uc[decryptedtext_len] = '\0';
@@ -407,7 +407,7 @@ int main(int argc, char** argv) {
 						memcpy(decryptedtext, decryptedtext_uc, decryptedtext_len);
 
 						printf("Client: %s", decryptedtext);
-						if (strcmp(decryptedtext, "quit\n") == 0) {
+						if (strncmp(decryptedtext, "quit", 4) == 0) {
 							printf("client exit\n");
 							// quit = 1;
 							// quit = 1;
@@ -415,6 +415,7 @@ int main(int argc, char** argv) {
 							string s(port2username[j]);
 							port2username.erase(j);
 							username2port.erase(s);
+							port2key.erase(j);
 
 							close(j);
 							FD_CLR(j, &sockets);
@@ -434,7 +435,7 @@ int main(int argc, char** argv) {
 							}
 							string r = clients.str();
 							const char* result = r.c_str();
-
+							
 							unsigned char* encrypted_message = new unsigned char[5000];
 							// Set iv to something random and fun
 							unsigned char iv[16];
@@ -507,7 +508,7 @@ int main(int argc, char** argv) {
 								// First part of message is always iv
 								memcpy(encrypted_message, iv, 16);
 								//encrypt decryptedtext here using symmetric key
-								ciphertext_len = encrypt((unsigned char*)decryptedtext, decryptedtext_len, port2key[username2port[key]], iv, ciphertext);
+								ciphertext_len = encrypt((unsigned char*)message, strlen(message), port2key[username2port[key]], iv, ciphertext);
 								// Second part is encrypted line from client
 								memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
 
@@ -524,18 +525,61 @@ int main(int argc, char** argv) {
 								key1[1] = decryptedtext[6]; //key should = cX, where X is the client num 
 								//client (c#) not found in keys
 								if (username2port.find(key1) == username2port.end()) {
+									printf("improper format\n");
 									string error = "No client with that name exists. Try using ls or bc\n";
-									send(j, error.c_str(), strlen(error.c_str())+1, 0); //c_str returns c char array from c++ string
+
+									const char* result = error.c_str();
+									
+									unsigned char* encrypted_message = new unsigned char[5000];
+									// Set iv to something random and fun
+									unsigned char iv[16];
+									RAND_pseudo_bytes(iv, 16);
+
+									//encrypt line here using symmetric key
+									ciphertext_len = encrypt((unsigned char*)result, strlen(result), port2key[j], iv, &(encrypted_message[16]));
+
+									// First part of message is always iv
+									memcpy(encrypted_message, iv, 16);
+
+
+									// Second part is encrypted line from client
+									// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+
+									// send(j, result, strlen(result)+1, 0);
+									send(j, encrypted_message, ciphertext_len+16, 0);
+
+									// send(j, error.c_str(), strlen(error.c_str())+1, 0); //c_str returns c char array from c++ string
 								}
 								//if client is found
 								else {
 									//send quit to client to force quit it
+									printf("force client quit\n");
 									char q[] = "quit\n";
-									send(username2port[key1], q, strlen(q)+1, 0);
+
+									unsigned char* encrypted_message = new unsigned char[5000];
+									// Set iv to something random and fun
+									unsigned char iv[16];
+									RAND_pseudo_bytes(iv, 16);
+
+									//encrypt line here using symmetric key
+									ciphertext_len = encrypt((unsigned char*)q, strlen(q), port2key[username2port[key1]], iv, &(encrypted_message[16]));
+
+									// First part of message is always iv
+									memcpy(encrypted_message, iv, 16);
+
+
+									// Second part is encrypted line from client
+									// memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
+
+									// send(j, result, strlen(result)+1, 0);
+									send(username2port[key1], encrypted_message, ciphertext_len+16, 0);
+
+									// send(username2port[key1], q, strlen(q)+1, 0);
 									// Update maps
 									int k = (username2port[key1]);
 									username2port.erase(key1);
 									port2username.erase(k);
+									port2key.erase(k);
 
 									close(k);
 									FD_CLR(k, &sockets);

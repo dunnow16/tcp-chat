@@ -217,14 +217,14 @@ int main(int argc, char** argv) {
 	char fileName[5000];
 	// Get port number and ip address.
 	char input[5000];
-	// printf("Enter a port number: ");
-	// fgets(input, 5000, stdin);
-	// port = atoi(input);
-	// if (port < 0 || port > 65535) {
-	// 	printf("Please enter a valid port number.");
-	// 	return 1;
-	// }
-	// //printf("%i\n", port);
+	printf("Enter a port number: ");
+	fgets(input, 5000, stdin);
+	port = atoi(input);
+	if (port < 0 || port > 65535) {
+		printf("Please enter a valid port number.");
+		return 1;
+	}
+	//printf("%i\n", port);
 
 	// printf("Enter an ip address: ");
 	// fgets(input, 5000, stdin);
@@ -271,7 +271,7 @@ int main(int argc, char** argv) {
 	// Servers listen on a certain port number
 	// What number should we use? arbitrary, but use for client and server;
 	// needs to be within a certain range.
-	serveraddr.sin_port = htons(5555); //9876 will end up being sent with the data
+	serveraddr.sin_port = htons(port); //9876 will end up being sent with the data
 	serveraddr.sin_addr.s_addr = inet_addr("127.0.0.1"); //localhost; good for
 	//testing programs "127.0.0.1" is localhost
 
@@ -398,13 +398,14 @@ int main(int argc, char** argv) {
 
 					// decrypt the message here
 					// seperate the incoming iv from the message
-					cout << "Retrieving iv from message\n";
+					// cout << "Retrieving iv from message\n";
 					memcpy(iv, line2, 16);
 
 					// decrypt the plaintext (using symmetric key)
 					// -first 16 bytes are the iv
-					cout << "Decrypting message\n";
+					// cout << "Decrypting message\n";
 					decryptedtext_len = decrypt(line2+16, recv_len-16, key, iv, decryptedtext);
+ 					decryptedtext[decryptedtext_len] = '\0';
 
 					// Print what we received.
 					//printf("%s", line2); dep
@@ -432,18 +433,18 @@ int main(int argc, char** argv) {
 					memcpy(&(encrypted_message[16]), ciphertext, ciphertext_len);
 					//memcpy(&(encrypted_message[16]), line, strlen(line)); dep
 
-					decryptedtext_len = decrypt((unsigned char*)&(encrypted_message[16]), ciphertext_len, key, iv,
-									decryptedtext);
-					decryptedtext[decryptedtext_len] = '\0';
-					printf("Decrypted text is:\n");
-					printf("%s\n", decryptedtext);
+					// decryptedtext_len = decrypt((unsigned char*)&(encrypted_message[16]), ciphertext_len, key, iv,
+					// 				decryptedtext);
+					// decryptedtext[decryptedtext_len] = '\0';
+					// printf("Decrypted text is:\n");
+					// printf("%s\n", decryptedtext);
 
 
 					//send(sockfd, line, strlen(line)+1, 0); dep
 					//send(sockfd, encrypted_message, strlen(line)+1 + 16, 0); dep
-					cout << "Sending message to server\n";
+					// cout << "Sending message to server\n";
 					send(sockfd, encrypted_message, ciphertext_len + 16, 0);
-					cout << "Message sent to server\n";
+					// cout << "Message sent to server\n";
 					if (strcmp(line, "quit\n") == 0) {
 						quit = 1;
 						break;
