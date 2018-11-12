@@ -111,7 +111,7 @@ int main(int argc, char** argv) {
 	unsigned char iv[16];
 	// unsigned char *plaintext =
 	// 	(unsigned char *)"This is a test string to encrypt.";
-	unsigned char ciphertext[2048]; // changed from 1024
+	unsigned char ciphertext[4096]; // changed from 1024
 
 	int decryptedtext_len, ciphertext_len;
 	// Initialize cryptography libraries
@@ -390,7 +390,7 @@ int main(int argc, char** argv) {
 						//-----------------------------
 						// create space to hold decrypted text
 						unsigned char unencrypted_message[5000];
-						unsigned char decryptedtext_uc[2048];
+						unsigned char decryptedtext_uc[4096];
 
 						printf("hi1\n");
 						// seperate iv and the encrypted text
@@ -403,7 +403,7 @@ int main(int argc, char** argv) {
 						decryptedtext_uc[decryptedtext_len] = '\0';
 						//convert the returned unsigned char into a char* for better compatibility
 						//char* decryptedtext = new char[2048];
-						char decryptedtext[2048];
+						char decryptedtext[4096];
 						memcpy(decryptedtext, decryptedtext_uc, decryptedtext_len);
 
 						printf("Client: %s", decryptedtext);
@@ -500,7 +500,18 @@ int main(int argc, char** argv) {
 
 								memcpy(message+4, decryptedtext+2, strlen(decryptedtext)-1);
 
-								send(username2port[key], message, strlen(message)+1, 0);
+								//encrypt message
+								char* encrypted_message = new char[5000];
+								// Set iv to something random and fun
+								RAND_pseudo_bytes(iv, 16);
+								// First part of message is always iv
+								memcpy(encrypted_message, iv, 16);
+								//encrypt decryptedtext here using symmetric key
+								ciphertext_len = encrypt((unsigned char*)decryptedtext, decryptedtext_len, port2key[username2port[key]], iv, ciphertext);
+								// Second part is encrypted line from client
+								memcpy(encrypted_message + 16, ciphertext, ciphertext_len);
+
+								send(username2port[key], encrypted_message, ciphertext_len + 16, 0);
 							}
 						}
 						else if (strncmp(decryptedtext, "kick", 4) == 0 ) {
