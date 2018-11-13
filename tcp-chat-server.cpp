@@ -346,6 +346,7 @@ int main(int argc, char** argv) {
 						memset(line, '\0', 5000);
 						break;
 					}
+				    memset(line, '\0', 5000);
 				} else {
 					// cout << "got message" << endl;
 					// Sending and receiving works the same for the server as the client.
