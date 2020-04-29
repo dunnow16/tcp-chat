@@ -1,2 +1,1 @@
-# TCP Encrypted Chat Program </br>
-# CIS 457 Data Communications </br>
+# TCP Encrypted Chat Program
